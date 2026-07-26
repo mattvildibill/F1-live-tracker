@@ -1,4 +1,5 @@
 import type { F1State, ERSState } from '../types/f1';
+import EmptyState from './EmptyState';
 import { getTeamColor } from '../utils/teamColors';
 
 interface Props {
@@ -35,29 +36,32 @@ export default function ERSPanel({ state }: Props) {
   const driverMap = new Map(drivers.map((d) => [d.driver_number, d]));
   const sorted = [...positions].sort((a, b) => a.position - b.position);
 
-  // Find pairs within 1 second
+  // Build interval lookup for O(1) access
+  const intervalMap = new Map(intervals.map((iv) => [iv.driver_number, iv]));
+
+  // Find pairs within 1 second.
+  // interval = gap to the car directly ahead; fall back to gap_to_leader diff if interval is null.
   const overtakePairs: Array<{ behind: number; ahead: number; gap: number }> = [];
   for (let i = 1; i < sorted.length; i++) {
     const behindPos = sorted[i];
     const aheadPos = sorted[i - 1];
-    const intv = intervals.find((iv) => iv.driver_number === behindPos.driver_number);
-    const prevIntv = intervals.find((iv) => iv.driver_number === aheadPos.driver_number);
-    const gap = (intv?.interval ?? intv?.gap_to_leader ?? null) !== null
-      ? Number(intv?.interval ?? intv?.gap_to_leader)
-      : null;
-    const prevGap = (prevIntv?.interval ?? prevIntv?.gap_to_leader ?? null) !== null
-      ? Number(prevIntv?.interval ?? prevIntv?.gap_to_leader)
-      : null;
+    const behindIntv = intervalMap.get(behindPos.driver_number);
+    const aheadIntv = intervalMap.get(aheadPos.driver_number);
 
-    let actualGap = gap !== null && prevGap !== null ? gap - prevGap : gap;
-    if (actualGap === null && intv?.interval != null) actualGap = intv.interval;
-    if (actualGap !== null && actualGap >= 0 && actualGap <= 1.0) {
-      overtakePairs.push({ behind: behindPos.driver_number, ahead: aheadPos.driver_number, gap: actualGap });
+    let gap: number | null = null;
+    if (behindIntv?.interval != null) {
+      gap = Number(behindIntv.interval);
+    } else if (behindIntv?.gap_to_leader != null && aheadIntv?.gap_to_leader != null) {
+      gap = Number(behindIntv.gap_to_leader) - Number(aheadIntv.gap_to_leader);
+    }
+
+    if (gap !== null && gap >= 0 && gap <= 1.0) {
+      overtakePairs.push({ behind: behindPos.driver_number, ahead: aheadPos.driver_number, gap });
     }
   }
 
   if (!sorted.length) {
-    return <div className="flex items-center justify-center h-64 text-gray-500">Waiting for data…</div>;
+    return <EmptyState icon="⚡" title="Waiting for ERS data" subtitle="Battery states will appear once car telemetry arrives." />;
   }
 
   return (

@@ -10,12 +10,16 @@ import HeadToHead from './components/HeadToHead';
 import GapChart from './components/GapChart';
 import TeamRadio from './components/TeamRadio';
 import SimulatorControls from './components/SimulatorControls';
+import RaceAlerts from './components/RaceAlerts';
+import CommandCenter from './components/CommandCenter';
+import { useRaceAlerts } from './hooks/useRaceAlerts';
 import './index.css';
 
-type Tab = 'tower' | 'map' | 'ers' | 'tyres' | 'h2h' | 'gaps' | 'radio';
+type Tab = 'command' | 'tower' | 'map' | 'ers' | 'tyres' | 'h2h' | 'gaps' | 'radio';
 type ViewMode = 'simulator' | 'live';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'command', label: '🎯 Command Center' },
   { id: 'tower', label: '🏁 Race Tower' },
   { id: 'map', label: '🗺 Track Map' },
   { id: 'ers', label: '⚡ ERS / Battery' },
@@ -44,7 +48,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
     (localStorage.getItem('f1-view-mode') as ViewMode) ?? 'simulator'
   );
-  const [activeTab, setActiveTab] = useState<Tab>('tower');
+  const [activeTab, setActiveTab] = useState<Tab>('command');
 
   // OpenF1 is only polled when the user explicitly selects Live mode
   const liveState = useOpenF1(viewMode === 'live');
@@ -53,8 +57,9 @@ export default function App() {
   const isSimActive = viewMode === 'simulator';
   const state = isSimActive ? simState : liveState;
 
-  const loading = viewMode === 'live' &&
-    !state.session && !state.positions.length && !state.drivers.length;
+  const { alerts, dismiss } = useRaceAlerts(state, !isSimActive);
+
+  const loading = viewMode === 'live' && state.lastUpdated === null;
 
   function switchMode(mode: ViewMode) {
     setViewMode(mode);
@@ -179,6 +184,7 @@ export default function App() {
           </div>
         ) : (
           <>
+            {activeTab === 'command' && <CommandCenter state={state} driverTrackPositions={isSimActive ? driverTrackPositions : undefined} />}
             {activeTab === 'tower' && <RaceTower state={state} />}
             {activeTab === 'map' && <TrackMap state={state} driverTrackPositions={isSimActive ? driverTrackPositions : undefined} />}
             {activeTab === 'ers' && <ERSPanel state={state} />}
@@ -189,6 +195,8 @@ export default function App() {
           </>
         )}
       </main>
+
+      <RaceAlerts alerts={alerts} onDismiss={dismiss} />
 
       <footer style={{ padding: '12px 16px', textAlign: 'center', fontSize: '12px', color: '#4b5563', borderTop: '1px solid #1f2937' }}>
         {isSimActive

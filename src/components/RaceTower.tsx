@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import type { F1State } from '../types/f1';
+import EmptyState from './EmptyState';
 import { getTeamColor } from '../utils/teamColors';
 import { formatLapTime, formatGap, getTyreColor, getTyreLabel } from '../utils/tyreUtils';
 import { STARTING_GRID } from '../mocks/australianGP2026';
@@ -22,38 +24,41 @@ function ERSBar({ charge }: { charge: number }) {
 export default function RaceTower({ state }: Props) {
   const { drivers, positions, intervals, laps, stints, ersStates, pits, currentLap } = state;
 
-  const driverMap = new Map(drivers.map((d) => [d.driver_number, d]));
+  const driverMap = useMemo(() => new Map(drivers.map((d) => [d.driver_number, d])), [drivers]);
+  const intervalMap = useMemo(() => new Map(intervals.map((i) => [i.driver_number, i])), [intervals]);
 
   // Build per-driver last lap time
-  const lastLapMap = new Map<number, number | null>();
-  for (const dn of driverMap.keys()) {
-    const driverLaps = laps
-      .filter((l) => l.driver_number === dn && l.lap_duration != null)
-      .sort((a, b) => b.lap_number - a.lap_number);
-    lastLapMap.set(dn, driverLaps[0]?.lap_duration ?? null);
-  }
+  const lastLapMap = useMemo(() => {
+    const m = new Map<number, number | null>();
+    for (const dn of driverMap.keys()) {
+      const driverLaps = laps
+        .filter((l) => l.driver_number === dn && l.lap_duration != null)
+        .sort((a, b) => b.lap_number - a.lap_number);
+      m.set(dn, driverLaps[0]?.lap_duration ?? null);
+    }
+    return m;
+  }, [driverMap, laps]);
 
   // Pit stop count per driver
-  const pitCountMap = new Map<number, number>();
-  for (const dn of driverMap.keys()) {
-    pitCountMap.set(dn, pits.filter((p) => p.driver_number === dn).length);
-  }
+  const pitCountMap = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const dn of driverMap.keys()) {
+      m.set(dn, pits.filter((p) => p.driver_number === dn).length);
+    }
+    return m;
+  }, [driverMap, pits]);
 
   // Currently pitting (this lap or last lap)
-  const inPitSet = new Set(
+  const inPitSet = useMemo(() => new Set(
     pits.filter((p) => p.lap_number >= currentLap - 1 && p.lap_number <= currentLap)
         .map((p) => p.driver_number)
-  );
+  ), [pits, currentLap]);
 
   // Sort by position
-  const sorted = [...positions].sort((a, b) => a.position - b.position);
+  const sorted = useMemo(() => [...positions].sort((a, b) => a.position - b.position), [positions]);
 
   if (!sorted.length) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        Waiting for position data…
-      </div>
-    );
+    return <EmptyState icon="🏁" title="Waiting for position data" subtitle="Live standings will appear once the session starts." />;
   }
 
   return (
@@ -64,19 +69,19 @@ export default function RaceTower({ state }: Props) {
             <th className="text-left py-2 px-3 w-8">P</th>
             <th className="text-left py-2 px-2 w-12">Δ Grid</th>
             <th className="text-left py-2 px-3">Driver</th>
-            <th className="text-left py-2 px-3">Team</th>
+            <th className="text-left py-2 px-3 hidden sm:table-cell">Team</th>
             <th className="text-right py-2 px-3">Gap</th>
-            <th className="text-right py-2 px-3">Last Lap</th>
+            <th className="text-right py-2 px-3 hidden sm:table-cell">Last Lap</th>
             <th className="text-left py-2 px-3">Tyre</th>
-            <th className="text-center py-2 px-2">Pits</th>
-            <th className="text-left py-2 px-3">ERS</th>
+            <th className="text-center py-2 px-2 hidden sm:table-cell">Pits</th>
+            <th className="text-left py-2 px-3 hidden md:table-cell">ERS</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((pos, idx) => {
             const driver = driverMap.get(pos.driver_number);
             if (!driver) return null;
-            const interval = intervals.find((i) => i.driver_number === pos.driver_number);
+            const interval = intervalMap.get(pos.driver_number);
             const lastLap = lastLapMap.get(pos.driver_number);
             const ers = ersStates[pos.driver_number];
             const teamColor = getTeamColor(driver.team_name, driver.team_colour);
@@ -126,7 +131,7 @@ export default function RaceTower({ state }: Props) {
                 </td>
 
                 {/* Team */}
-                <td className="py-2.5 px-3">
+                <td className="py-2.5 px-3 hidden sm:table-cell">
                   <span className="text-xs text-gray-400">{driver.team_name}</span>
                 </td>
 
@@ -140,7 +145,7 @@ export default function RaceTower({ state }: Props) {
                 </td>
 
                 {/* Last Lap */}
-                <td className="py-2.5 px-3 text-right font-mono text-gray-300">
+                <td className="py-2.5 px-3 text-right font-mono text-gray-300 hidden sm:table-cell">
                   {formatLapTime(lastLap)}
                 </td>
 
@@ -158,12 +163,12 @@ export default function RaceTower({ state }: Props) {
                 </td>
 
                 {/* Pit count */}
-                <td className="py-2.5 px-2 text-center font-mono text-xs text-gray-400">
+                <td className="py-2.5 px-2 text-center font-mono text-xs text-gray-400 hidden sm:table-cell">
                   {pitCount > 0 ? pitCount : '—'}
                 </td>
 
                 {/* ERS */}
-                <td className="py-2.5 px-3">
+                <td className="py-2.5 px-3 hidden md:table-cell">
                   {ers ? <ERSBar charge={ers.charge} /> : <span className="text-gray-600 text-xs">—</span>}
                 </td>
               </tr>

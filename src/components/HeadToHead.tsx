@@ -8,11 +8,12 @@ import {
   Title,
   Tooltip,
   Legend,
+  type ChartOptions,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { F1State } from '../types/f1';
 import { getTeamColor } from '../utils/teamColors';
-import { formatLapTime } from '../utils/tyreUtils';
+import { formatLapTime, getTyreLabel } from '../utils/tyreUtils';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -72,7 +73,7 @@ export default function HeadToHead({ state }: Props) {
     ],
   };
 
-  const chartOptions = {
+  const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     plugins: {
       legend: { labels: { color: '#9ca3af' } },
@@ -111,6 +112,27 @@ export default function HeadToHead({ state }: Props) {
   const stintsB = stints[driverB ?? 0] ?? [];
   const lastLapA = lapsA[lapsA.length - 1];
   const lastLapB = lapsB[lapsB.length - 1];
+
+  // Best sector times across all laps for each driver (for purple highlight)
+  const bestSectorsA = useMemo(() => {
+    if (!driverA) return { s1: null, s2: null, s3: null };
+    const all = laps.filter((l) => l.driver_number === driverA);
+    return {
+      s1: all.reduce<number | null>((b, l) => l.duration_sector_1 != null && (b == null || l.duration_sector_1 < b) ? l.duration_sector_1 : b, null),
+      s2: all.reduce<number | null>((b, l) => l.duration_sector_2 != null && (b == null || l.duration_sector_2 < b) ? l.duration_sector_2 : b, null),
+      s3: all.reduce<number | null>((b, l) => l.duration_sector_3 != null && (b == null || l.duration_sector_3 < b) ? l.duration_sector_3 : b, null),
+    };
+  }, [laps, driverA]);
+
+  const bestSectorsB = useMemo(() => {
+    if (!driverB) return { s1: null, s2: null, s3: null };
+    const all = laps.filter((l) => l.driver_number === driverB);
+    return {
+      s1: all.reduce<number | null>((b, l) => l.duration_sector_1 != null && (b == null || l.duration_sector_1 < b) ? l.duration_sector_1 : b, null),
+      s2: all.reduce<number | null>((b, l) => l.duration_sector_2 != null && (b == null || l.duration_sector_2 < b) ? l.duration_sector_2 : b, null),
+      s3: all.reduce<number | null>((b, l) => l.duration_sector_3 != null && (b == null || l.duration_sector_3 < b) ? l.duration_sector_3 : b, null),
+    };
+  }, [laps, driverB]);
 
   return (
     <div className="p-4 space-y-6">
@@ -160,8 +182,18 @@ export default function HeadToHead({ state }: Props) {
               {getStatRow('Position', posA ? `P${posA.position}` : '—', posB ? `P${posB.position}` : '—')}
               {getStatRow('Gap to Leader', intA?.gap_to_leader != null ? `+${Number(intA.gap_to_leader).toFixed(3)}` : '—', intB?.gap_to_leader != null ? `+${Number(intB.gap_to_leader).toFixed(3)}` : '—')}
               {getStatRow('Last Lap', formatLapTime(lastLapA?.lap_duration), formatLapTime(lastLapB?.lap_duration))}
+              {getStatRow('Best S1', formatLapTime(bestSectorsA.s1), formatLapTime(bestSectorsB.s1))}
+              {getStatRow('Best S2', formatLapTime(bestSectorsA.s2), formatLapTime(bestSectorsB.s2))}
+              {getStatRow('Best S3', formatLapTime(bestSectorsA.s3), formatLapTime(bestSectorsB.s3))}
               {getStatRow('Pit Stops', String(stintsA.length > 0 ? stintsA.length - 1 : 0), String(stintsB.length > 0 ? stintsB.length - 1 : 0))}
-              {getStatRow('Current Tyre', stintsA[stintsA.length - 1]?.compound ?? '—', stintsB[stintsB.length - 1]?.compound ?? '—')}
+              {getStatRow('Current Tyre',
+                stintsA[stintsA.length - 1]
+                  ? `${getTyreLabel(stintsA[stintsA.length - 1].compound)} (${stintsA[stintsA.length - 1].compound})`
+                  : '—',
+                stintsB[stintsB.length - 1]
+                  ? `${getTyreLabel(stintsB[stintsB.length - 1].compound)} (${stintsB[stintsB.length - 1].compound})`
+                  : '—'
+              )}
               {getStatRow('Tyre Age', stintsA[stintsA.length - 1] ? `${stintsA[stintsA.length - 1].tyreAge}L` : '—', stintsB[stintsB.length - 1] ? `${stintsB[stintsB.length - 1].tyreAge}L` : '—')}
             </tbody>
           </table>
@@ -172,7 +204,61 @@ export default function HeadToHead({ state }: Props) {
       {(lapsA.length > 0 || lapsB.length > 0) && (
         <div className="bg-gray-800/40 rounded-xl p-4">
           <h3 className="text-sm text-gray-400 mb-3">Last 5 Laps Comparison</h3>
-          <Line data={chartData} options={chartOptions as object} />
+          <Line data={chartData} options={chartOptions} />
+        </div>
+      )}
+
+      {/* Sector-by-sector breakdown for last 5 laps */}
+      {(lapsA.length > 0 || lapsB.length > 0) && (
+        <div className="bg-gray-800/40 rounded-xl overflow-hidden">
+          <div className="px-4 py-2 border-b border-gray-700 text-xs text-gray-400 uppercase tracking-wider font-semibold">
+            Sector Times — Last 5 Laps
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs font-mono">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-2 px-3">Lap</th>
+                  <th className="text-right py-2 px-2" style={{ color: colorA }}>S1</th>
+                  <th className="text-right py-2 px-2" style={{ color: colorA }}>S2</th>
+                  <th className="text-right py-2 px-2" style={{ color: colorA }}>S3</th>
+                  <th className="text-right py-2 px-3" style={{ color: colorA }}>Lap</th>
+                  <th className="px-3" />
+                  <th className="text-left py-2 px-3">Lap</th>
+                  <th className="text-left py-2 px-2" style={{ color: colorB }}>S1</th>
+                  <th className="text-left py-2 px-2" style={{ color: colorB }}>S2</th>
+                  <th className="text-left py-2 px-2" style={{ color: colorB }}>S3</th>
+                  <th className="text-left py-2 px-3" style={{ color: colorB }}>Lap</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lapNumbers.map((ln) => {
+                  const la = lapsA.find((l) => l.lap_number === ln);
+                  const lb = lapsB.find((l) => l.lap_number === ln);
+                  const sectorColor = (val: number | null | undefined, best: number | null) =>
+                    val != null && best != null && val <= best * 1.001 ? '#a855f7' : '#9ca3af';
+                  return (
+                    <tr key={ln} className="border-b border-gray-800/50">
+                      <td className="py-1.5 px-3 text-gray-500">L{ln}</td>
+                      <td className="py-1.5 px-2 text-right" style={{ color: sectorColor(la?.duration_sector_1, bestSectorsA.s1) }}>{la?.duration_sector_1 != null ? la.duration_sector_1.toFixed(3) : '—'}</td>
+                      <td className="py-1.5 px-2 text-right" style={{ color: sectorColor(la?.duration_sector_2, bestSectorsA.s2) }}>{la?.duration_sector_2 != null ? la.duration_sector_2.toFixed(3) : '—'}</td>
+                      <td className="py-1.5 px-2 text-right" style={{ color: sectorColor(la?.duration_sector_3, bestSectorsA.s3) }}>{la?.duration_sector_3 != null ? la.duration_sector_3.toFixed(3) : '—'}</td>
+                      <td className="py-1.5 px-3 text-right" style={{ color: colorA }}>{formatLapTime(la?.lap_duration)}</td>
+                      <td className="px-2 text-gray-700">|</td>
+                      <td className="py-1.5 px-3 text-gray-500">L{ln}</td>
+                      <td className="py-1.5 px-2" style={{ color: sectorColor(lb?.duration_sector_1, bestSectorsB.s1) }}>{lb?.duration_sector_1 != null ? lb.duration_sector_1.toFixed(3) : '—'}</td>
+                      <td className="py-1.5 px-2" style={{ color: sectorColor(lb?.duration_sector_2, bestSectorsB.s2) }}>{lb?.duration_sector_2 != null ? lb.duration_sector_2.toFixed(3) : '—'}</td>
+                      <td className="py-1.5 px-2" style={{ color: sectorColor(lb?.duration_sector_3, bestSectorsB.s3) }}>{lb?.duration_sector_3 != null ? lb.duration_sector_3.toFixed(3) : '—'}</td>
+                      <td className="py-1.5 px-3" style={{ color: colorB }}>{formatLapTime(lb?.lap_duration)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-2 text-xs text-gray-600">
+            <span style={{ color: '#a855f7' }}>Purple</span> = personal best sector
+          </div>
         </div>
       )}
 

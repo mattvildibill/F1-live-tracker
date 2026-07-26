@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   F1State, Session, Driver, Position, Interval, Lap,
-  CarData, Pit, RaceControl, Weather, Location, DriverStints, StintInfo,
+  CarData, Pit, RaceControl, Weather, Location, OpenF1Stint,
 } from '../types/f1';
 import { useErsEstimator } from './useErsEstimator';
 import { mockF1State } from '../mocks/australianGP2026';
+import { deriveStints } from '../utils/stintUtils';
 
 const BASE = '/openf1/v1';
 const POLL_MS = 3000;
@@ -22,43 +23,6 @@ function latestByDriver<T extends { driver_number: number }>(items: T[]): T[] {
   return Array.from(map.values());
 }
 
-function deriveStints(laps: Lap[], pits: Pit[]): DriverStints {
-  const stints: DriverStints = {};
-  const driverNums = [...new Set(laps.map((l) => l.driver_number))];
-
-  for (const dn of driverNums) {
-    const driverPits = pits.filter((p) => p.driver_number === dn).sort((a, b) => a.lap_number - b.lap_number);
-    const driverLaps = laps.filter((l) => l.driver_number === dn).sort((a, b) => a.lap_number - b.lap_number);
-    if (!driverLaps.length) continue;
-
-    const maxLap = driverLaps[driverLaps.length - 1].lap_number;
-    const stintList: StintInfo[] = [];
-    let stintStart = 1;
-    const compounds = ['SOFT', 'MEDIUM', 'HARD'];
-    let compoundIdx = 0;
-
-    for (const pit of driverPits) {
-      stintList.push({
-        compound: compounds[compoundIdx % compounds.length],
-        startLap: stintStart,
-        endLap: pit.lap_number,
-        tyreAge: pit.lap_number - stintStart,
-      });
-      stintStart = pit.lap_number + 1;
-      compoundIdx++;
-    }
-    stintList.push({
-      compound: compounds[compoundIdx % compounds.length],
-      startLap: stintStart,
-      endLap: maxLap,
-      tyreAge: maxLap - stintStart,
-    });
-
-    stints[dn] = stintList;
-  }
-
-  return stints;
-}
 
 const INITIAL_STATE: F1State = {
   session: null,
@@ -86,6 +50,7 @@ export function useOpenF1(enabled = true) {
   const allLapsRef = useRef<Lap[]>([]);
   const allPitsRef = useRef<Pit[]>([]);
   const allRaceControlRef = useRef<RaceControl[]>([]);
+  const allStintsRef = useRef<OpenF1Stint[]>([]);
   const failCountRef = useRef(0);
   const usingMockRef = useRef(false);
   const { update: updateErs } = useErsEstimator();
@@ -98,7 +63,7 @@ export function useOpenF1(enabled = true) {
     const q = `session_key=${sk}`;
 
     try {
-      const [positions, intervals, latestLaps, carDataArr, pits, raceControl, weatherArr, locations, drivers] =
+      const [positions, intervals, latestLaps, carDataArr, pits, raceControl, weatherArr, locations, drivers, stintsRes] =
         await Promise.allSettled([
           apiFetch<Position>(`/position?${q}`),
           apiFetch<Interval>(`/intervals?${q}`),
@@ -109,6 +74,7 @@ export function useOpenF1(enabled = true) {
           apiFetch<Weather>(`/weather?${q}`),
           apiFetch<Location>(`/location?${q}`),
           apiFetch<Driver>(`/drivers?${q}`),
+          apiFetch<OpenF1Stint>(`/stints?${q}`),
         ]);
 
       const getVal = <T>(r: PromiseSettledResult<T[]>): T[] =>
@@ -123,6 +89,7 @@ export function useOpenF1(enabled = true) {
       const wArr = getVal(weatherArr);
       const locArr = getVal(locations);
       const drvArr = getVal(drivers);
+      const stintsArr = getVal(stintsRes);
 
       // If every endpoint failed, count as a failure
       const totalData = posArr.length + intArr.length + lapArr.length + drvArr.length;
@@ -159,13 +126,22 @@ export function useOpenF1(enabled = true) {
         if (!exists) allRaceControlRef.current.push(rc);
       }
 
+      // Stints: replace by driver+stint_number (API returns full list each poll)
+      for (const s of stintsArr) {
+        const idx = allStintsRef.current.findIndex(
+          (x) => x.driver_number === s.driver_number && x.stint_number === s.stint_number
+        );
+        if (idx === -1) allStintsRef.current.push(s);
+        else allStintsRef.current[idx] = s; // update lap_end as stint progresses
+      }
+
       const latestPos = latestByDriver(posArr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
       const latestInt = latestByDriver(intArr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
       const latestCar = latestByDriver(cdArr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
       const latestLoc = latestByDriver(locArr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
 
       const weather = wArr.length ? wArr[wArr.length - 1] : null;
-      const stints = deriveStints(allLapsRef.current, allPitsRef.current);
+      const stints = deriveStints(allLapsRef.current, allPitsRef.current, allStintsRef.current);
       const ersStates = latestCar.length ? updateErs(latestCar) : {};
       const currentLap = allLapsRef.current.length
         ? Math.max(...allLapsRef.current.map((l) => l.lap_number))
@@ -213,7 +189,8 @@ export function useOpenF1(enabled = true) {
           throw new Error('no session');
         }
       } catch {
-        // Will fall back to mock after API_FAIL_THRESHOLD poll failures
+        // Session API unavailable — pre-saturate fail counter so mock loads on first failed poll
+        failCountRef.current = API_FAIL_THRESHOLD - 1;
       }
       fetchAll();
     }

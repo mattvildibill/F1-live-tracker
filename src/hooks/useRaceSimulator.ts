@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { F1State, Position, Interval, DriverStints, StintInfo } from '../types/f1';
+import type { F1State, Position, Interval } from '../types/f1';
+import { deriveStints } from '../utils/stintUtils';
 import {
   mockF1State, mockLaps, mockPits, mockRaceControl, mockErsStates,
   TOTAL_LAPS, DRIVER_CONFIGS,
@@ -93,29 +94,6 @@ export function computeTrackPositions(simTime: number): Map<number, number> {
 }
 
 // ─── Derive F1State at a given simTime ───────────────────────────────────────
-function buildStints(lapsUpTo: typeof mockLaps, pitsUpTo: typeof mockPits): DriverStints {
-  const stints: DriverStints = {};
-  const compounds = ['SOFT', 'MEDIUM', 'HARD'];
-  const driverNums = [...new Set(lapsUpTo.map((l) => l.driver_number))];
-
-  for (const dn of driverNums) {
-    const dPits = pitsUpTo.filter((p) => p.driver_number === dn).sort((a, b) => a.lap_number - b.lap_number);
-    const dLaps = lapsUpTo.filter((l) => l.driver_number === dn);
-    if (!dLaps.length) continue;
-    const maxLap = Math.max(...dLaps.map((l) => l.lap_number));
-
-    const list: StintInfo[] = [];
-    let start = 1, ci = 0;
-    for (const pit of dPits) {
-      list.push({ compound: compounds[ci % 3], startLap: start, endLap: pit.lap_number, tyreAge: pit.lap_number - start });
-      start = pit.lap_number + 1; ci++;
-    }
-    list.push({ compound: compounds[ci % 3], startLap: start, endLap: maxLap, tyreAge: maxLap - start });
-    stints[dn] = list;
-  }
-  return stints;
-}
-
 function deriveState(simTime: number): F1State {
   if (simTime <= 0) {
     return { ...mockF1State, positions: [], intervals: [], laps: [], pits: [], raceControl: [], stints: {}, ersStates: {}, currentLap: 0, lastUpdated: new Date() };
@@ -182,7 +160,7 @@ function deriveState(simTime: number): F1State {
     laps: lapsUpTo,
     pits: pitsUpTo,
     raceControl: rcUpTo,
-    stints: buildStints(lapsUpTo, pitsUpTo),
+    stints: deriveStints(lapsUpTo, pitsUpTo),
     ersStates: scaledErs,
     currentLap: leaderLap,
     lastUpdated: new Date(),
@@ -234,7 +212,7 @@ export function useRaceSimulator(): {
     totalSimSeconds: TOTAL_SIM_SECONDS,
     isPlaying,
     speed,
-    play:    () => { if (simTime >= TOTAL_SIM_SECONDS) setSimTime(0); setIsPlaying(true); },
+    play:    () => { setSimTime((prev) => (prev >= TOTAL_SIM_SECONDS ? 0 : prev)); setIsPlaying(true); },
     pause:   () => setIsPlaying(false),
     reset:   () => { setIsPlaying(false); setSimTime(0); },
     seekTo:  (t) => setSimTime(Math.max(0, Math.min(TOTAL_SIM_SECONDS, t))),

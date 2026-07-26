@@ -8,9 +8,12 @@ import {
   Title,
   Tooltip,
   Legend,
+  type ChartOptions,
+  type ChartData,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { F1State } from '../types/f1';
+import EmptyState from './EmptyState';
 import { getTeamColor } from '../utils/teamColors';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -78,7 +81,7 @@ export default function GapChart({ state }: Props) {
     return { labels: last15.map((l) => `L${l}`), datasets };
   }, [laps, top6, driverMap]);
 
-  const chartOptions = {
+  const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     plugins: {
       legend: { labels: { color: '#9ca3af', boxWidth: 12 } },
@@ -105,17 +108,13 @@ export default function GapChart({ state }: Props) {
   };
 
   if (!labels.length) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        Waiting for lap data to build gap chart…
-      </div>
-    );
+    return <EmptyState icon="📈" title="Waiting for lap data" subtitle="The gap chart will populate after 2 or more laps are completed." />;
   }
 
   return (
     <div className="p-4">
       <div className="bg-gray-800/40 rounded-xl p-4">
-        <Line data={{ labels, datasets: datasets as never[] }} options={chartOptions as object} />
+        <Line data={{ labels, datasets } as ChartData<'line'>} options={chartOptions} />
       </div>
     </div>
   );

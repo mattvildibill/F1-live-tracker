@@ -39,8 +39,3 @@ export function formatGap(gap: number | null | undefined): string {
   return `+${gap.toFixed(3)}`;
 }
 
-export const SECTOR_COLORS = {
-  FASTEST_OVERALL: '#a855f7',   // purple
-  PERSONAL_BEST: '#22c55e',     // green
-  SLOWER: '#eab308',            // yellow
-};

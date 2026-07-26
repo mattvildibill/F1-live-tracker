@@ -4,8 +4,8 @@ import { getTeamColor } from '../utils/teamColors';
 import { formatLapTime, formatGap, getTyreColor, getTyreLabel } from '../utils/tyreUtils';
 import {
   useTrackLayout,
-  ALBERT_PARK_PATH, PIT_LANE_PATH, DRS_ZONES, SECTOR_FRACS, TURN_LABELS,
-  VIEW_W, VIEW_H,
+  PIT_LANE_PATH, DRS_ZONES, SECTOR_FRACS, TURN_LABELS,
+  VIEW_H,
 } from '../hooks/useTrackLayout';
 
 interface Props {
@@ -30,9 +30,9 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
     if (pathRef.current) setTotalLength(pathRef.current.getTotalLength());
   }, [layout.svgPath]); // recalculate if path changes (API data arrives)
 
-  const driverMap  = new Map(drivers.map((d) => [d.driver_number, d]));
-  const intervalMap = new Map(intervals.map((i) => [i.driver_number, i]));
-  const sorted     = [...positions].sort((a, b) => a.position - b.position);
+  const driverMap   = useMemo(() => new Map(drivers.map((d) => [d.driver_number, d])), [drivers]);
+  const intervalMap = useMemo(() => new Map(intervals.map((i) => [i.driver_number, i])), [intervals]);
+  const sorted      = useMemo(() => [...positions].sort((a, b) => a.position - b.position), [positions]);
 
   // Last lap per driver
   const lastLapMap = useMemo(() => {
@@ -94,70 +94,57 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
     }).filter(Boolean) as Array<{ driver_number: number; position: number; x: number; y: number; driver: typeof drivers[0] }>;
   }, [totalLength, sorted, intervalMap, driverTrackPositions, layout, state.locations, driverMap]);
 
-  // ── DRS zone polylines ────────────────────────────────────────────────────
-  const drsPolylines = useMemo(() => {
-    if (!totalLength || !pathRef.current) return [];
-    return DRS_ZONES.map(([s, e]) => {
-      const steps = 30;
+  // ── Static track decorations — all computed in one memo keyed on totalLength ──
+  const trackDecorations = useMemo(() => {
+    if (!totalLength || !pathRef.current) {
+      return { drsPolylines: [], sectorPts: [], turnPts: [], kerbPts: [] };
+    }
+    const path = pathRef.current;
+
+    const drsPolylines = DRS_ZONES.map(([s, e]) => {
       const pts: string[] = [];
-      for (let i = 0; i <= steps; i++) {
-        const t = s + (e - s) * (i / steps);
-        const p = pathRef.current!.getPointAtLength(t * totalLength);
+      for (let i = 0; i <= 30; i++) {
+        const t = s + (e - s) * (i / 30);
+        const p = path.getPointAtLength(t * totalLength);
         pts.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`);
       }
       return pts.join(' ');
     });
-  }, [totalLength]);
 
-  // ── Sector + turn label positions ────────────────────────────────────────
-  const sectorPts = useMemo(() => {
-    if (!totalLength || !pathRef.current) return [];
-    return SECTOR_FRACS.map((sf) => {
-      const p = pathRef.current!.getPointAtLength(sf.frac * totalLength);
+    const sectorPts = SECTOR_FRACS.map((sf) => {
+      const p = path.getPointAtLength(sf.frac * totalLength);
       return { label: sf.label, x: p.x, y: p.y };
     });
-  }, [totalLength]);
 
-  const turnPts = useMemo(() => {
-    if (!totalLength || !pathRef.current) return [];
-    return TURN_LABELS.map(([frac, label]) => {
-      const p = pathRef.current!.getPointAtLength((frac as number) * totalLength);
+    const turnPts = TURN_LABELS.map(([frac, label]) => {
+      const p = path.getPointAtLength((frac as number) * totalLength);
       return { label, x: p.x, y: p.y };
     });
-  }, [totalLength]);
 
-  // ── Kerb markers: alternating coloured dashes along corners ───────────────
-  // Sample points near each turn, place small coloured stripes
-  const kerbPts = useMemo(() => {
-    if (!totalLength || !pathRef.current) return [];
-    const pts: Array<{ x: number; y: number; nx: number; ny: number; i: number }> = [];
-    // Kerb marker ranges aligned with new path fractions
     const TURN_RANGES: Array<[number, number]> = [
-      [0.13, 0.20], // T1
-      [0.20, 0.28], // T2-T3 chicane
-      [0.36, 0.44], // T4-T5
-      [0.58, 0.66], // T8
-      [0.73, 0.80], // T9-T10
-      [0.83, 0.91], // T11-T12 chicane
-      [0.91, 0.97], // T13-T14
+      [0.13, 0.20], [0.20, 0.28], [0.36, 0.44],
+      [0.58, 0.66], [0.73, 0.80], [0.83, 0.91], [0.91, 0.97],
     ];
+    const kerbPts: Array<{ x: number; y: number; nx: number; ny: number; i: number }> = [];
     for (const [s, e] of TURN_RANGES) {
-      const steps = 6;
-      for (let k = 0; k <= steps; k++) {
-        const t  = s + (e - s) * (k / steps);
-        const t2 = s + (e - s) * (Math.min(k + 0.5, steps) / steps);
-        const p  = pathRef.current!.getPointAtLength(t * totalLength);
-        const p2 = pathRef.current!.getPointAtLength(t2 * totalLength);
+      for (let k = 0; k <= 6; k++) {
+        const t  = s + (e - s) * (k / 6);
+        const t2 = s + (e - s) * (Math.min(k + 0.5, 6) / 6);
+        const p  = path.getPointAtLength(t * totalLength);
+        const p2 = path.getPointAtLength(t2 * totalLength);
         const dx = p2.x - p.x, dy = p2.y - p.y;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        pts.push({ x: p.x, y: p.y, nx: -dy / len, ny: dx / len, i: k });
+        kerbPts.push({ x: p.x, y: p.y, nx: -dy / len, ny: dx / len, i: k });
       }
     }
-    return pts;
+
+    return { drsPolylines, sectorPts, turnPts, kerbPts };
   }, [totalLength]);
 
+  const { drsPolylines, sectorPts, turnPts, kerbPts } = trackDecorations;
+
   return (
-    <div style={{ display: 'flex', gap: '12px', padding: '16px', height: '100%', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: '12px', padding: '16px', height: '100%', alignItems: 'flex-start', flexWrap: 'wrap' }} className="track-map-root">
 
       {/* ── SVG Track ───────────────────────────────────────────────────── */}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -178,14 +165,14 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
 
           {/* === Track surface layers === */}
           {/* Outer kerb border (widest) */}
-          <path d={ALBERT_PARK_PATH} fill="none" stroke="#4b5563" strokeWidth={26} strokeLinecap="round" strokeLinejoin="round" />
+          <path d={layout.svgPath} fill="none" stroke="#4b5563" strokeWidth={26} strokeLinecap="round" strokeLinejoin="round" />
           {/* Track tarmac */}
-          <path d={ALBERT_PARK_PATH} fill="none" stroke="#1e293b" strokeWidth={20} strokeLinecap="round" strokeLinejoin="round" />
+          <path d={layout.svgPath} fill="none" stroke="#1e293b" strokeWidth={20} strokeLinecap="round" strokeLinejoin="round" />
           {/* Centre line (subtle) */}
-          <path d={ALBERT_PARK_PATH} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8 18" opacity={0.6} />
+          <path d={layout.svgPath} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8 18" opacity={0.6} />
 
           {/* Reference path (invisible, used for getPointAtLength) */}
-          <path ref={pathRef} d={ALBERT_PARK_PATH} fill="none" stroke="none" />
+          <path ref={pathRef} d={layout.svgPath} fill="none" stroke="none" />
 
           {/* === Kerb markers at corners === */}
           {kerbPts.map((kp, ki) => {
@@ -210,23 +197,36 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
             <polyline key={i} points={pts} fill="none" stroke="#22c55e" strokeWidth={5} strokeOpacity={0.55} strokeLinecap="round" />
           ))}
 
-          {/* === Pit lane === */}
+          {/* === Pit lane — parallel to pit-straight approach (S/F at ~199,398) === */}
           <path d={PIT_LANE_PATH} fill="none" stroke="#374151" strokeWidth={10} strokeLinecap="round" />
           <path d={PIT_LANE_PATH} fill="none" stroke="#0f172a" strokeWidth={6} strokeLinecap="round" />
-          {/* Pit box markers */}
-          {[178, 202, 226, 250, 274, 298, 320].map((y) => (
-            <line key={y} x1={622} y1={y} x2={635} y2={y} stroke="#374151" strokeWidth={1} />
-          ))}
-          <text x={638} y={255} fontSize={8} fill="#4b5563" transform="rotate(90 638 255)">PIT LANE</text>
+          {/* Pit box tick marks along the pit lane */}
+          {[0, 1, 2, 3, 4].map((i) => {
+            const t = i / 4;
+            // Interpolate along PIT_LANE_PATH: M 228 440 L 207 415
+            const lx = 228 - t * 21, ly = 440 - t * 25;
+            // Perpendicular direction to the pit lane
+            return <line key={i} x1={lx} y1={ly} x2={lx + 4} y2={ly - 4} stroke="#374151" strokeWidth={1} />;
+          })}
+          <text x={240} y={435} fontSize={8} fill="#4b5563" transform="rotate(-48 240 435)">PIT LANE</text>
 
-          {/* === Start / Finish line === */}
-          <line x1={600} y1={130} x2={622} y2={130} stroke="#ffffff" strokeWidth={4} />
-          {/* Chequered pattern */}
+          {/* === Start / Finish line ===
+              S/F is at path start (199.8, 397.7). Tangent direction: toward (194.9, 393.0).
+              Perpendicular line drawn across the track. */}
+          <line x1={206} y1={391} x2={194} y2={404} stroke="#ffffff" strokeWidth={3} />
+          {/* Chequered squares along the line */}
           {[0,1,2,3].map((i) => (
-            <rect key={i} x={600 + i * 5} y={128} width={5} height={4}
-              fill={i % 2 === 0 ? '#fff' : '#000'} />
+            <rect
+              key={i}
+              x={193.6 + i * 2.76 - 1.5}
+              y={404.2 + i * (-2.88) - 1.5}
+              width={3.5}
+              height={3.5}
+              fill={i % 2 === 0 ? '#ffffff' : '#000000'}
+              transform={`rotate(-47 ${193.6 + i * 2.76} ${404.2 + i * -2.88})`}
+            />
           ))}
-          <text x={628} y={134} fontSize={9} fill="#9ca3af" fontWeight="600">S/F</text>
+          <text x={208} y={388} fontSize={9} fill="#9ca3af" fontWeight="600">S/F</text>
 
           {/* === Sector boundaries === */}
           {sectorPts.map((sp) => (
@@ -243,8 +243,8 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
             </text>
           ))}
 
-          {/* === DRS label on pit straight === */}
-          <text x={632} y={155} fontSize={8} fill="#4ade80" opacity={0.8}>DRS</text>
+          {/* === DRS label near pit straight (S/F vicinity) === */}
+          <text x={185} y={393} fontSize={8} fill="#4ade80" opacity={0.8}>DRS</text>
 
           {/* === API source indicator === */}
           {layout.isFromAPI && (
@@ -256,8 +256,9 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
             const color    = getTeamColor(driver.team_name, driver.team_colour);
             const isTop3   = position <= 3;
             const isPitting = inPitSet.has(driver_number);
-            const dotX     = isPitting ? 627 : x;
-            const dotY     = isPitting ? 190 + position * 10 : y;
+            // Pitting cars cluster in the pit lane area (near S/F at 199,398)
+            const dotX     = isPitting ? 218 : x;
+            const dotY     = isPitting ? 428 - (position % 8) * 6 : y;
 
             // Text contrast
             const darkTeams = new Set(['Mercedes', 'Alpine', 'McLaren']);
@@ -303,14 +304,14 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
           })}
 
           {/* Circuit label */}
-          <text x={10} y={VIEW_H - 10} fontSize={10} fill="#1e293b" fontWeight="700">
-            Albert Park Circuit · Melbourne · 5.278 km · 14 Turns
+          <text x={10} y={VIEW_H - 10} fontSize={9} fill="#1e293b" fontWeight="700">
+            Albert Park · Melbourne · 5.278 km · 14 Turns
           </text>
         </svg>
       </div>
 
       {/* ── Side Panel ─────────────────────────────────────────────────────── */}
-      <div style={{ width: '255px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '74vh', overflowY: 'auto' }}>
+      <div className="track-map-sidebar" style={{ width: '255px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '74vh', overflowY: 'auto' }}>
 
         {/* Legend */}
         <div style={{ backgroundColor: '#0f172a', borderRadius: '8px', padding: '10px 12px', border: '1px solid #1f2937', fontSize: '10px', color: '#6b7280' }}>
@@ -398,7 +399,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
 
           {!sorted.length && (
             <div style={{ padding: '24px', textAlign: 'center', color: '#4b5563', fontSize: '12px' }}>
-              Waiting for data…
+              Waiting for position data…
             </div>
           )}
         </div>

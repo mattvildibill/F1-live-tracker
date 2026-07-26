@@ -114,6 +114,17 @@ export interface Location {
   meeting_key: number;
 }
 
+export interface OpenF1Stint {
+  driver_number: number;
+  stint_number: number;
+  compound: string;
+  lap_start: number;
+  lap_end: number;
+  tyre_age_at_start: number;
+  session_key: number;
+  meeting_key: number;
+}
+
 export interface StintInfo {
   compound: 'SOFT' | 'MEDIUM' | 'HARD' | 'INTERMEDIATE' | 'WET' | string;
   startLap: number;

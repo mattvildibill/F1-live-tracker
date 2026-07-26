@@ -1,4 +1,5 @@
 import type { F1State, RaceControl } from '../types/f1';
+import EmptyState from './EmptyState';
 
 interface Props {
   state: F1State;
@@ -34,11 +35,7 @@ export default function TeamRadio({ state }: Props) {
   const sorted = [...raceControl].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (!sorted.length) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        No race control messages yet.
-      </div>
-    );
+    return <EmptyState icon="📻" title="No race control messages yet" subtitle="Flag and safety car events will appear here during the session." />;
   }
 
   return (

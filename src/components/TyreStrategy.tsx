@@ -1,4 +1,5 @@
 import type { F1State } from '../types/f1';
+import EmptyState from './EmptyState';
 import { getTeamColor } from '../utils/teamColors';
 import { getTyreColor, getTyreLabel } from '../utils/tyreUtils';
 
@@ -7,13 +8,22 @@ interface Props {
 }
 
 export default function TyreStrategy({ state }: Props) {
-  const { drivers, positions, stints, currentLap, totalLaps } = state;
+  const { drivers, positions, stints, pits, currentLap, totalLaps } = state;
   const driverMap = new Map(drivers.map((d) => [d.driver_number, d]));
   const sorted = [...positions].sort((a, b) => a.position - b.position);
   const raceLaps = Math.max(totalLaps, currentLap, 1);
 
+  // Per-driver pit stop list sorted by lap
+  const pitsByDriver = new Map<number, typeof pits>();
+  for (const driver of drivers) {
+    pitsByDriver.set(
+      driver.driver_number,
+      pits.filter((p) => p.driver_number === driver.driver_number).sort((a, b) => a.lap_number - b.lap_number)
+    );
+  }
+
   if (!sorted.length) {
-    return <div className="flex items-center justify-center h-64 text-gray-500">Waiting for data…</div>;
+    return <EmptyState icon="🔴" title="Waiting for tyre data" subtitle="Stint bars will appear after the first lap is completed." />;
   }
 
   return (
@@ -90,6 +100,49 @@ export default function TyreStrategy({ state }: Props) {
           );
         })}
       </div>
+
+      {/* Pit stop delta table */}
+      {pits.length > 0 && (
+        <div className="mt-5 pt-4 border-t border-gray-800">
+          <h3 className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Pit Stop Durations</h3>
+          <div className="overflow-x-auto">
+            <table className="text-xs font-mono w-full">
+              <thead>
+                <tr className="text-gray-600 border-b border-gray-800">
+                  <th className="text-left py-1 pr-4 font-normal">Driver</th>
+                  {Array.from({ length: Math.max(...[...pitsByDriver.values()].map((p) => p.length), 0) }, (_, i) => (
+                    <th key={i} className="text-center py-1 px-3 font-normal">Stop {i + 1}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((pos) => {
+                  const driver = driverMap.get(pos.driver_number);
+                  if (!driver) return null;
+                  const driverPits = pitsByDriver.get(pos.driver_number) ?? [];
+                  if (!driverPits.length) return null;
+                  const teamColor = getTeamColor(driver.team_name, driver.team_colour);
+                  return (
+                    <tr key={pos.driver_number} className="border-b border-gray-800/40">
+                      <td className="py-1.5 pr-4">
+                        <span className="font-bold" style={{ color: teamColor }}>{driver.name_acronym}</span>
+                      </td>
+                      {driverPits.map((pit, i) => (
+                        <td key={i} className="text-center py-1.5 px-3">
+                          <span className="text-gray-300">
+                            {pit.pit_duration != null ? `${pit.pit_duration.toFixed(1)}s` : '—'}
+                          </span>
+                          <span className="text-gray-600 ml-1">L{pit.lap_number}</span>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-800">

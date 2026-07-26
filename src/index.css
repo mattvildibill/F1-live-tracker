@@ -31,3 +31,14 @@
   white-space: nowrap;
   animation: scroll-ticker 35s linear infinite;
 }
+
+/* TrackMap: stack side panel below SVG on mobile */
+@media (max-width: 640px) {
+  .track-map-root {
+    flex-direction: column !important;
+  }
+  .track-map-sidebar {
+    width: 100% !important;
+    max-height: none !important;
+  }
+}
