@@ -147,18 +147,25 @@ function deriveState(simTime: number): F1State {
 
   const leaderFraction = totalFraction(ranked[0]?.driver_number ?? LEADER_DN);
 
+  // Each driver runs their own lap-time sequence, so there is no shared race
+  // clock to subtract. Convert the distance deficit (in laps) into seconds
+  // against a single reference pace — the leader's current lap. Using each
+  // driver's own lap time instead makes the mapping non-monotonic, which can
+  // show a lower-placed car with a smaller gap than the car ahead of it.
+  const refLapTime = currentLapDuration(
+    ranked[0]?.driver_number ?? LEADER_DN,
+    progress.get(ranked[0]?.driver_number ?? LEADER_DN)?.lapsCompleted ?? 0
+  );
+
   const intervals: Interval[] = ranked.map((d, i) => {
-    const mine = totalFraction(d.driver_number);
-    const ahead = i > 0 ? totalFraction(ranked[i - 1].driver_number) : mine;
-    // Each driver runs their own lap-time sequence, so there is no shared race
-    // clock to subtract. Convert the distance deficit (in laps) into seconds
-    // using the lap this driver is currently on.
-    const lapTime = currentLapDuration(d.driver_number, progress.get(d.driver_number)?.lapsCompleted ?? 0);
+    const gap = (leaderFraction - totalFraction(d.driver_number)) * refLapTime;
+    // Interval is the difference between consecutive gaps, as on a real timing screen
+    const aheadGap = i > 0 ? (leaderFraction - totalFraction(ranked[i - 1].driver_number)) * refLapTime : 0;
     return {
       driver_number: d.driver_number,
       date: '',
-      gap_to_leader: i === 0 ? 0 : parseFloat(((leaderFraction - mine) * lapTime).toFixed(3)),
-      interval: i === 0 ? 0 : parseFloat(((ahead - mine) * lapTime).toFixed(3)),
+      gap_to_leader: i === 0 ? 0 : parseFloat(gap.toFixed(3)),
+      interval: i === 0 ? 0 : parseFloat((gap - aheadGap).toFixed(3)),
       session_key: 9500,
       meeting_key: 1201,
     };

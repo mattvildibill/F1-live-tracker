@@ -33,9 +33,12 @@ export function formatLapTime(seconds: number | null | undefined): string {
   return `${mins}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
+/**
+ * Callers render P1's "Leader" label themselves, so a zero here means a car
+ * that is level with the driver ahead — not the race leader.
+ */
 export function formatGap(gap: number | null | undefined): string {
   if (gap == null) return '--';
-  if (gap === 0) return 'Leader';
   return `+${gap.toFixed(3)}`;
 }
 
