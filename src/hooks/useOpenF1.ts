@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   F1State, Session, Driver, Position, Interval, Lap,
   CarData, Pit, RaceControl, Weather, Location, OpenF1Stint,
+  TeamRadioMsg,
 } from '../types/f1';
 import { useErsEstimator } from './useErsEstimator';
 import { mockF1State } from '../mocks/australianGP2026';
@@ -23,7 +24,6 @@ function latestByDriver<T extends { driver_number: number }>(items: T[]): T[] {
   return Array.from(map.values());
 }
 
-
 const INITIAL_STATE: F1State = {
   session: null,
   drivers: [],
@@ -36,6 +36,7 @@ const INITIAL_STATE: F1State = {
   weather: null,
   locations: [],
   stints: {},
+  teamRadio: [],
   ersStates: {},
   isLive: false,
   isStale: false,
@@ -44,7 +45,7 @@ const INITIAL_STATE: F1State = {
   totalLaps: 0,
 };
 
-export function useOpenF1(enabled = true) {
+export function useOpenF1(enabled = true, sessionKeyOverride: number | null = null) {
   const [state, setState] = useState<F1State>(INITIAL_STATE);
   const sessionKeyRef = useRef<number | string>('latest');
   const allLapsRef = useRef<Lap[]>([]);
@@ -63,7 +64,7 @@ export function useOpenF1(enabled = true) {
     const q = `session_key=${sk}`;
 
     try {
-      const [positions, intervals, latestLaps, carDataArr, pits, raceControl, weatherArr, locations, drivers, stintsRes] =
+      const [positions, intervals, latestLaps, carDataArr, pits, raceControl, weatherArr, locations, drivers, stintsRes, teamRadioArr] =
         await Promise.allSettled([
           apiFetch<Position>(`/position?${q}`),
           apiFetch<Interval>(`/intervals?${q}`),
@@ -75,6 +76,7 @@ export function useOpenF1(enabled = true) {
           apiFetch<Location>(`/location?${q}`),
           apiFetch<Driver>(`/drivers?${q}`),
           apiFetch<OpenF1Stint>(`/stints?${q}`),
+          apiFetch<TeamRadioMsg>(`/team_radio?${q}`),
         ]);
 
       const getVal = <T>(r: PromiseSettledResult<T[]>): T[] =>
@@ -90,6 +92,7 @@ export function useOpenF1(enabled = true) {
       const locArr = getVal(locations);
       const drvArr = getVal(drivers);
       const stintsArr = getVal(stintsRes);
+      const radioArr = getVal(teamRadioArr);
 
       // If every endpoint failed, count as a failure
       const totalData = posArr.length + intArr.length + lapArr.length + drvArr.length;
@@ -156,6 +159,7 @@ export function useOpenF1(enabled = true) {
         carData: latestCar.length ? latestCar : prev.carData,
         pits: allPitsRef.current,
         raceControl: allRaceControlRef.current,
+        teamRadio: radioArr.length ? radioArr : prev.teamRadio,
         weather,
         locations: latestLoc.length ? latestLoc : prev.locations,
         stints,
@@ -177,13 +181,25 @@ export function useOpenF1(enabled = true) {
 
   useEffect(() => {
     if (!enabled) return;
+    // Reset accumulators whenever the target session changes
+    allLapsRef.current = [];
+    allPitsRef.current = [];
+    allRaceControlRef.current = [];
+    allStintsRef.current = [];
+    failCountRef.current = 0;
+    usingMockRef.current = false;
+    setState({ ...INITIAL_STATE });
+
     async function initSession() {
       try {
-        const sessions = await apiFetch<Session>('/sessions?session_key=latest');
+        const query = sessionKeyOverride != null
+          ? `/sessions?session_key=${sessionKeyOverride}`
+          : '/sessions?session_key=latest';
+        const sessions = await apiFetch<Session>(query);
         if (sessions.length) {
           const s = sessions[0];
-          const isLive = s.status === 'started' || !s.date_end;
-          sessionKeyRef.current = isLive ? 'latest' : s.session_key;
+          const isLive = sessionKeyOverride == null && (s.status === 'started' || !s.date_end);
+          sessionKeyRef.current = sessionKeyOverride ?? (isLive ? 'latest' : s.session_key);
           setState((prev) => ({ ...prev, session: s, isLive }));
         } else {
           throw new Error('no session');
@@ -195,7 +211,7 @@ export function useOpenF1(enabled = true) {
       fetchAll();
     }
     initSession();
-  }, [fetchAll, enabled]);
+  }, [fetchAll, enabled, sessionKeyOverride]);
 
   useEffect(() => {
     if (!enabled) return;

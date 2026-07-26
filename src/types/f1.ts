@@ -154,10 +154,44 @@ export interface F1State {
   weather: Weather | null;
   locations: Location[];
   stints: DriverStints;
+  teamRadio: TeamRadioMsg[];
   ersStates: { [driverNumber: number]: ERSState };
   isLive: boolean;
   isStale: boolean;
   lastUpdated: Date | null;
   currentLap: number;
   totalLaps: number;
+}
+
+// ─── OpenF1 team radio (audio recordings) ────────────────────────────────────
+export interface TeamRadioMsg {
+  driver_number: number;
+  date: string;
+  recording_url: string;
+  session_key: number;
+  meeting_key: number;
+}
+
+// ─── OpenF1 real stint data (/stints endpoint) ───────────────────────────────
+export interface ApiStint {
+  driver_number: number;
+  stint_number: number;
+  compound: string;
+  lap_start: number;
+  lap_end: number;
+  tyre_age_at_start: number;
+  session_key: number;
+  meeting_key: number;
+}
+
+// ─── OpenF1 meetings (for the session browser) ───────────────────────────────
+export interface Meeting {
+  meeting_key: number;
+  meeting_name: string;
+  meeting_official_name: string;
+  circuit_short_name: string;
+  country_name: string;
+  location: string;
+  date_start: string;
+  year: number;
 }

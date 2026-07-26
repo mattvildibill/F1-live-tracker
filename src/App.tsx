@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import SectorAnalysis from './components/SectorAnalysis';
+import Telemetry from './components/Telemetry';
+import PitLane from './components/PitLane';
+import Championship from './components/Championship';
+import SessionPicker from './components/SessionPicker';
 import { useOpenF1 } from './hooks/useOpenF1';
 import { useRaceSimulator } from './hooks/useRaceSimulator';
 import Header from './components/Header';
@@ -15,18 +20,22 @@ import CommandCenter from './components/CommandCenter';
 import { useRaceAlerts } from './hooks/useRaceAlerts';
 import './index.css';
 
-type Tab = 'command' | 'tower' | 'map' | 'ers' | 'tyres' | 'h2h' | 'gaps' | 'radio';
+type Tab = 'command' | 'tower' | 'map' | 'sectors' | 'telemetry' | 'ers' | 'tyres' | 'pits' | 'h2h' | 'gaps' | 'radio' | 'champ';
 type ViewMode = 'simulator' | 'live';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'command', label: '🎯 Command Center' },
   { id: 'tower', label: '🏁 Race Tower' },
   { id: 'map', label: '🗺 Track Map' },
+  { id: 'sectors', label: '⏱ Sectors' },
+  { id: 'telemetry', label: '📡 Telemetry' },
   { id: 'ers', label: '⚡ ERS / Battery' },
   { id: 'tyres', label: '🔴 Tyre Strategy' },
+  { id: 'pits', label: '🔧 Pit Lane' },
   { id: 'h2h', label: '⚔️ Head to Head' },
   { id: 'gaps', label: '📈 Gap Chart' },
   { id: 'radio', label: '📻 Race Control' },
+  { id: 'champ', label: '🏆 Championship' },
 ];
 
 function modeBtn(active: boolean, danger = false): React.CSSProperties {
@@ -49,9 +58,10 @@ export default function App() {
     (localStorage.getItem('f1-view-mode') as ViewMode) ?? 'simulator'
   );
   const [activeTab, setActiveTab] = useState<Tab>('command');
+  const [sessionOverride, setSessionOverride] = useState<number | null>(null);
 
   // OpenF1 is only polled when the user explicitly selects Live mode
-  const liveState = useOpenF1(viewMode === 'live');
+  const liveState = useOpenF1(viewMode === 'live', sessionOverride);
   const { state: simState, controls, driverTrackPositions } = useRaceSimulator();
 
   const isSimActive = viewMode === 'simulator';
@@ -91,6 +101,13 @@ export default function App() {
         <button style={modeBtn(!isSimActive, true)} onClick={() => switchMode('live')}>
           🔴 Live
         </button>
+
+        {!isSimActive && (
+          <SessionPicker
+            currentSessionKey={sessionOverride}
+            onSelect={setSessionOverride}
+          />
+        )}
 
         {/* Contextual info */}
         {isSimActive ? (
@@ -160,7 +177,9 @@ export default function App() {
 
       {/* ── Content ──────────────────────────────────────────────────────────── */}
       <main style={{ flex: 1 }}>
-        {loading ? (
+        {activeTab === 'champ' ? (
+          <Championship />
+        ) : loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '256px', gap: '12px' }}>
             <div style={{
               width: '32px', height: '32px', border: '2px solid #ef4444',
@@ -187,8 +206,11 @@ export default function App() {
             {activeTab === 'command' && <CommandCenter state={state} driverTrackPositions={isSimActive ? driverTrackPositions : undefined} />}
             {activeTab === 'tower' && <RaceTower state={state} />}
             {activeTab === 'map' && <TrackMap state={state} driverTrackPositions={isSimActive ? driverTrackPositions : undefined} />}
+            {activeTab === 'sectors' && <SectorAnalysis state={state} />}
+            {activeTab === 'telemetry' && <Telemetry state={state} />}
             {activeTab === 'ers' && <ERSPanel state={state} />}
             {activeTab === 'tyres' && <TyreStrategy state={state} />}
+            {activeTab === 'pits' && <PitLane state={state} />}
             {activeTab === 'h2h' && <HeadToHead state={state} />}
             {activeTab === 'gaps' && <GapChart state={state} />}
             {activeTab === 'radio' && <TeamRadio state={state} />}

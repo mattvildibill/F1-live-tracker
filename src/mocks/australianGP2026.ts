@@ -269,7 +269,7 @@ export const mockLocations: Location[] = FINAL_ORDER.map((dn, i) => {
 // - Ferrari missed VSC1, pitted under VSC2 (lap 16-17): SOFT → HARD (longer stint)
 // - Norris: 2-stop SOFT → MEDIUM → HARD
 // - Verstappen started P20 on MEDIUM to have tyre advantage at the end, → SOFT
-const DRIVER_COMPOUND_SEQUENCES: Record<number, string[]> = {
+export const DRIVER_COMPOUND_SEQUENCES: Record<number, string[]> = {
   63:  ['SOFT', 'MEDIUM'],                   // Russell: 1-stop VSC1
   12:  ['SOFT', 'MEDIUM'],                   // Antonelli: 1-stop VSC1
   16:  ['SOFT', 'HARD'],                     // Leclerc: 1-stop VSC2 (Ferrari missed VSC1)
@@ -403,6 +403,7 @@ export const mockF1State: F1State = {
   weather: mockWeather,
   locations: mockLocations,
   stints: buildMockStints(),
+  teamRadio: [], // sim radio messages are embedded in raceControl as [TEAM RADIO]
   ersStates: mockErsStates,
   isLive: false,
   isStale: false,

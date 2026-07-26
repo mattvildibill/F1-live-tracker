@@ -79,8 +79,8 @@ export default function HeadToHead({ state }: Props) {
       legend: { labels: { color: '#9ca3af' } },
       tooltip: {
         callbacks: {
-          label: (ctx: { dataset: { label?: string }; parsed: { y: number } }) =>
-            `${ctx.dataset.label}: ${formatLapTime(ctx.parsed.y)}`,
+          label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
+            `${ctx.dataset.label}: ${formatLapTime(ctx.parsed.y ?? 0)}`,
         },
       },
     },

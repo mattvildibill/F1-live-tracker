@@ -14,8 +14,22 @@ function FlagBadge({ message }: { message: string }) {
   return null;
 }
 
+function windArrow(deg: number): string {
+  const arrows = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘']; // wind FROM direction → arrow points where it blows
+  return arrows[Math.round(((deg % 360) / 45)) % 8];
+}
+
 export default function Header({ state }: Props) {
-  const { session, isLive, isStale, weather, raceControl, currentLap, totalLaps } = state;
+  const { session, isLive, isStale, weather, raceControl, currentLap, totalLaps, drivers, positions } = state;
+
+  // Cars running: started (has a position) minus retirements announced in race control
+  const retired = new Set(
+    raceControl
+      .filter((rc) => rc.message.toLowerCase().includes('retired') && rc.driver_number != null)
+      .map((rc) => rc.driver_number)
+  );
+  const started = positions.length || drivers.length;
+  const running = started ? started - retired.size : 0;
 
   const latestRC = [...raceControl].reverse().slice(0, 5);
   const tickerText = latestRC.map((rc) => rc.message).join('   ·   ');
@@ -26,7 +40,11 @@ export default function Header({ state }: Props) {
   });
 
   const sessionLabel = session
-    ? `${session.circuit_short_name ?? session.location} — ${session.session_name}`
+    ? `${session.circuit_short_name ?? session.location} — ${
+        session.session_type && session.session_type !== session.session_name
+          ? `${session.session_type} · ${session.session_name}`
+          : session.session_name
+      }${session.year ? ` · ${session.year}` : ''}`
     : 'Loading…';
 
   return (
@@ -63,6 +81,13 @@ export default function Header({ state }: Props) {
           </span>
         )}
 
+        {/* Cars running */}
+        {running > 0 && started > 0 && (
+          <span className="text-gray-500 text-xs">
+            🏎 <span className={retired.size ? 'text-orange-300 font-semibold' : 'text-gray-300'}>{running}</span>/{started} running
+          </span>
+        )}
+
         {/* SC / Red flag badges */}
         {scActive && <FlagBadge message="safety car" />}
 
@@ -77,6 +102,9 @@ export default function Header({ state }: Props) {
             </span>
             <span className="bg-gray-800 px-2 py-0.5 rounded">
               💧 {weather.humidity.toFixed(0)}%
+            </span>
+            <span className="bg-gray-800 px-2 py-0.5 rounded" title={`Wind from ${weather.wind_direction.toFixed(0)}°`}>
+              💨 {weather.wind_speed.toFixed(1)} m/s {windArrow(weather.wind_direction)}
             </span>
             {weather.rainfall > 0 && (
               <span className="bg-blue-900 px-2 py-0.5 rounded text-blue-300">🌧 Rain</span>

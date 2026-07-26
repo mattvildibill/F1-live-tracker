@@ -24,18 +24,18 @@
 ## 🟡 Medium Priority (New Features)
 
 ### New: Sector Analysis Tab
-- [ ] Add a new **"⏱ Sectors"** tab
-- [ ] Show S1/S2/S3 times per driver per lap (from lap data)
-- [ ] Purple highlight for personal/overall fastest sector
+- [x] Add a new **"⏱ Sectors"** tab
+- [x] Show S1/S2/S3 times per driver per lap (from lap data)
+- [x] Purple highlight for personal/overall fastest sector
 - [ ] Mini trend chart for each sector over last 5 laps
 
 ### New: Telemetry Tab
-- [ ] Add a **"📡 Telemetry"** tab
-- [ ] Speed trace chart (km/h over distance) from `car_data`
-- [ ] Throttle/brake overlay (0–100%)
-- [ ] Gear chart
+- [x] Add a **"📡 Telemetry"** tab
+- [x] Speed trace chart (km/h over distance) from `car_data`
+- [x] Throttle/brake overlay (0–100%)
+- [x] Gear chart
 - [ ] DRS activation markers
-- [ ] Compare two drivers side by side
+- [x] Compare two drivers side by side
 
 ### Gap Chart
 - [ ] Add **pit stop markers** on the chart (vertical dotted lines when a driver pits)
@@ -43,7 +43,7 @@
 - [ ] Add **undercut window** shading (gap < pit loss = undercut possible)
 
 ### Tyre Strategy
-- [ ] Add **pit duration** displayed on pit stop markers
+- [x] Add **pit duration** displayed on pit stop markers
 - [ ] Add **predicted pit window** range for drivers not yet pitted (dim shaded area)
 - [ ] Show tyre degradation rate estimate (lap time delta per stint lap)
 
@@ -58,13 +58,13 @@
 - [ ] Add **Overtake Mode countdown** estimate (seconds of boost remaining)
 
 ### Header
-- [ ] Add **wind speed + direction** to weather strip (data already fetched, just not displayed)
-- [ ] Add **session type breadcrumb** (Practice 1 / Qualifying / Race)
-- [ ] Show **cars remaining** count (20 started, X running, Y DNF)
+- [x] Add **wind speed + direction** to weather strip (data already fetched, just not displayed)
+- [x] Add **session type breadcrumb** (Practice 1 / Qualifying / Race)
+- [x] Show **cars remaining** count (20 started, X running, Y DNF)
 
 ### Team Radio (Race Control)
-- [ ] Add **filter buttons** (All / Flags / Safety Car / DRS / Penalties)
-- [ ] Distinguish **team radio** messages from **race control** messages visually
+- [x] Add **filter buttons** (All / Flags / Safety Car / DRS / Penalties)
+- [x] Distinguish **team radio** messages from **race control** messages visually
 - [ ] Add actual team radio messages from mock data once added
 
 ---
@@ -95,7 +95,7 @@
 ### General UX
 - [ ] **Mobile layout** — current flex layout breaks on small screens; make tabs scroll, resize panels
 - [ ] Add **keyboard shortcuts** (Space = play/pause, left/right arrow = seek)
-- [ ] Add a **Settings panel**: choose which session to load, toggle simulation vs live
+- [x] Add a **Settings panel**: choose which session to load, toggle simulation vs live
 - [ ] Dark/light mode toggle
 
 ### Performance
@@ -107,7 +107,7 @@
 
 ## 🐛 Known Bugs
 
-- [ ] Tyre compounds in simulation cycle SOFT→MEDIUM→HARD artificially regardless of actual strategy
+- [x] Tyre compounds in simulation cycle SOFT→MEDIUM→HARD artificially regardless of actual strategy
 - [ ] `useOpenF1` has no deduplication key for race control messages (can show duplicates)
 - [ ] `HeadToHead` pit stop count uses `stints.length - 1` which is off-by-one if driver hasn't pitted
 - [ ] `computeTrackPositions` doesn't account for retired drivers (they stay frozen on track)

@@ -11,6 +11,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/openf1/, ''),
       },
+      '/jolpica': {
+        target: 'https://api.jolpi.ca',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/jolpica/, ''),
+      },
     },
   },
 })

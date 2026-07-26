@@ -1,6 +1,6 @@
 # F1 Live Tracker
 
-A real-time Formula 1 race dashboard built with React and TypeScript. Connects to the free [OpenF1 API](https://openf1.org) to display live timing, car telemetry, tyre strategy, ERS data, and driver positions on an interactive track map — all in a dark F1 broadcast-style UI.
+A real-time Formula 1 data cockpit built with React and TypeScript. Connects to the free [OpenF1 API](https://openf1.org) and [Jolpica-F1](https://github.com/jolpica/jolpica-f1) (the Ergast successor) to display live timing, full car telemetry traces, sector analysis, tyre strategy, pit stop analysis, team radio audio, championship standings, and driver positions on an interactive track map — all in a dark F1 broadcast-style UI.
 
 When no live race is happening (or the API is rate-limited), a full race **simulator** lets you replay the 2026 Australian Grand Prix lap by lap with smooth, sub-lap car positioning updated at 20fps.
 
@@ -22,6 +22,8 @@ When no live race is happening (or the API is rate-limited), a full race **simul
 
 ### Live Mode
 - Polls all OpenF1 endpoints every 3 seconds using `Promise.allSettled` (no single endpoint failure kills the update)
+- Uses the real `/stints` endpoint for **actual tyre compounds** (falls back to derivation from pit stops when unavailable)
+- **Session browser** — load any OpenF1 meeting/session back to 2023 (📅 in the mode bar) and replay it in the cockpit
 - Vite dev proxy rewrites `/openf1/...` → `https://api.openf1.org/...` to bypass CORS
 - Gracefully falls back to the most recent completed session when no race is live
 - "LIVE" / "Archived Session" badge in the mode bar
@@ -82,7 +84,9 @@ npm run lint     # ESLint
 
 All live data comes from the [OpenF1 API](https://openf1.org) — a free, community-maintained API that provides real-time F1 timing, telemetry, and session data.
 
-Endpoints used: `/position`, `/intervals`, `/laps`, `/car_data`, `/pit`, `/race_control`, `/weather`, `/location`, `/drivers`
+Endpoints used: `/position`, `/intervals`, `/laps`, `/car_data`, `/pit`, `/race_control`, `/weather`, `/location`, `/drivers`, `/team_radio`, `/stints`, `/meetings`, `/sessions`
+
+Championship standings, the season calendar, and race results come from **[Jolpica-F1](https://api.jolpi.ca)** — the community-maintained successor to the Ergast API (CORS-enabled, no auth). Refreshed every 5 minutes.
 
 The Vite dev server proxies these requests through `/openf1/...` to avoid CORS issues in development.
 

@@ -93,8 +93,8 @@ export default function GapChart({ state }: Props) {
       },
       tooltip: {
         callbacks: {
-          label: (ctx: { dataset: { label?: string }; parsed: { y: number } }) =>
-            `${ctx.dataset.label}: +${ctx.parsed.y.toFixed(3)}s`,
+          label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
+            `${ctx.dataset.label}: +${(ctx.parsed.y ?? 0).toFixed(3)}s`,
         },
       },
     },

@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { F1State, Position, Interval } from '../types/f1';
-import { deriveStints } from '../utils/stintUtils';
+import type { F1State, Position, Interval, DriverStints, StintInfo } from '../types/f1';
 import {
   mockF1State, mockLaps, mockPits, mockRaceControl, mockErsStates,
-  TOTAL_LAPS, DRIVER_CONFIGS,
+  TOTAL_LAPS, DRIVER_CONFIGS, DRIVER_COMPOUND_SEQUENCES,
 } from '../mocks/australianGP2026';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -94,6 +93,29 @@ export function computeTrackPositions(simTime: number): Map<number, number> {
 }
 
 // ─── Derive F1State at a given simTime ───────────────────────────────────────
+function buildStints(lapsUpTo: typeof mockLaps, pitsUpTo: typeof mockPits): DriverStints {
+  const stints: DriverStints = {};
+  const driverNums = [...new Set(lapsUpTo.map((l) => l.driver_number))];
+
+  for (const dn of driverNums) {
+    const dPits = pitsUpTo.filter((p) => p.driver_number === dn).sort((a, b) => a.lap_number - b.lap_number);
+    const dLaps = lapsUpTo.filter((l) => l.driver_number === dn);
+    if (!dLaps.length) continue;
+    const maxLap = Math.max(...dLaps.map((l) => l.lap_number));
+    const compounds = DRIVER_COMPOUND_SEQUENCES[dn] ?? ['SOFT', 'MEDIUM', 'HARD'];
+
+    const list: StintInfo[] = [];
+    let start = 1, ci = 0;
+    for (const pit of dPits) {
+      list.push({ compound: compounds[ci] ?? 'MEDIUM', startLap: start, endLap: pit.lap_number, tyreAge: pit.lap_number - start });
+      start = pit.lap_number + 1; ci++;
+    }
+    list.push({ compound: compounds[ci] ?? 'HARD', startLap: start, endLap: maxLap, tyreAge: maxLap - start });
+    stints[dn] = list;
+  }
+  return stints;
+}
+
 function deriveState(simTime: number): F1State {
   if (simTime <= 0) {
     return { ...mockF1State, positions: [], intervals: [], laps: [], pits: [], raceControl: [], stints: {}, ersStates: {}, currentLap: 0, lastUpdated: new Date() };
@@ -160,7 +182,7 @@ function deriveState(simTime: number): F1State {
     laps: lapsUpTo,
     pits: pitsUpTo,
     raceControl: rcUpTo,
-    stints: deriveStints(lapsUpTo, pitsUpTo),
+    stints: buildStints(lapsUpTo, pitsUpTo),
     ersStates: scaledErs,
     currentLap: leaderLap,
     lastUpdated: new Date(),
@@ -189,7 +211,7 @@ export function useRaceSimulator(): {
   const [simTime, setSimTime]   = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed]       = useState<PlaybackSpeed>(5);
-  const tickRef = useRef<ReturnType<typeof setInterval>>();
+  const tickRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const tick = useCallback(() => {
     setSimTime((prev) => {
