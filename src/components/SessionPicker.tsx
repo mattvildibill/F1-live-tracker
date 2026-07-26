@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Meeting, Session } from '../types/f1';
 
-const BASE = '/openf1/v1';
+import { OPENF1_BASE as BASE } from '../utils/api';
+
 
 interface Props {
   currentSessionKey: number | null;

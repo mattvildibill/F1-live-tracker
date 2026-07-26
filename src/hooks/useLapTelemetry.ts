@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import type { F1State, CarData, Lap } from '../types/f1';
 import { generateLapTelemetry, LAP_LENGTH_M, type TelemetrySample } from '../utils/syntheticTelemetry';
 
-const BASE = '/openf1/v1';
+import { OPENF1_BASE as BASE } from '../utils/api';
+
 const SIM_SESSION_KEY = 9500;
 
 export interface LapTelemetry {

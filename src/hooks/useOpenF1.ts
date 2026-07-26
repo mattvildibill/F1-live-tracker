@@ -7,8 +7,8 @@ import type {
 import { useErsEstimator } from './useErsEstimator';
 import { mockF1State } from '../mocks/australianGP2026';
 import { deriveStints } from '../utils/stintUtils';
+import { OPENF1_BASE as BASE } from '../utils/api';
 
-const BASE = '/openf1/v1';
 const POLL_MS = 3000;
 const API_FAIL_THRESHOLD = 2; // use mock after this many consecutive failures
 

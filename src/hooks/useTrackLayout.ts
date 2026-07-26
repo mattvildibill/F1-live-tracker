@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { OPENF1_BASE } from '../utils/api';
 
 export const VIEW_W = 490;   // matches Albert Park GPS path width
 export const VIEW_H = 560;
@@ -189,7 +190,7 @@ export function useTrackLayout(sessionKey?: number | string): TrackLayout {
     async function load() {
       try {
         // Try to fetch real GPS layout for the session leader
-        const res = await fetch(`/openf1/v1/location?session_key=${sessionKey}&driver_number=1`);
+        const res = await fetch(`${OPENF1_BASE}/location?session_key=${sessionKey}&driver_number=1`);
         if (!res.ok || cancelled) return;
         const raw: { x: number; y: number }[] = await res.json();
         if (raw.length < 100 || cancelled) return;
