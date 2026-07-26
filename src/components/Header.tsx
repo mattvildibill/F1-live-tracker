@@ -1,4 +1,5 @@
 import type { F1State } from '../types/f1';
+import { currentNeutralisation } from '../utils/raceStatus';
 
 interface Props {
   state: F1State;
@@ -6,9 +7,10 @@ interface Props {
 
 function FlagBadge({ message }: { message: string }) {
   const lower = message.toLowerCase();
-  if (lower.includes('safety car')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-500 text-black">SC</span>;
-  if (lower.includes('virtual safety car') || lower.includes('vsc')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-400 text-black">VSC</span>;
   if (lower.includes('red flag')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-600 text-white">RED FLAG</span>;
+  // VSC must be tested before the broader "safety car" match
+  if (lower.includes('virtual safety car') || lower.includes('vsc')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-400 text-black">VSC</span>;
+  if (lower.includes('safety car')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-500 text-black">SC</span>;
   if (lower.includes('drs enabled')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-500 text-black">DRS ✓</span>;
   if (lower.includes('drs disabled')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-500 text-white">DRS ✗</span>;
   return null;
@@ -34,10 +36,7 @@ export default function Header({ state }: Props) {
   const latestRC = [...raceControl].reverse().slice(0, 5);
   const tickerText = latestRC.map((rc) => rc.message).join('   ·   ');
 
-  const scActive = raceControl.some((rc) => {
-    const msg = rc.message.toLowerCase();
-    return msg.includes('safety car deployed') || msg.includes('virtual safety car');
-  });
+  const neutralisation = currentNeutralisation(raceControl);
 
   const sessionLabel = session
     ? `${session.circuit_short_name ?? session.location} — ${
@@ -88,8 +87,16 @@ export default function Header({ state }: Props) {
           </span>
         )}
 
-        {/* SC / Red flag badges */}
-        {scActive && <FlagBadge message="safety car" />}
+        {/* SC / VSC / Red flag badge — reflects the current track state */}
+        {neutralisation && (
+          <FlagBadge
+            message={
+              neutralisation === 'red' ? 'red flag'
+                : neutralisation === 'vsc' ? 'virtual safety car'
+                : 'safety car'
+            }
+          />
+        )}
 
         {/* Weather chips */}
         {weather && (

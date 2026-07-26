@@ -61,6 +61,14 @@ function driverProgress(dn: number, simTime: number) {
   return { lapsCompleted, fraction, totalFraction: lapsCompleted + fraction };
 }
 
+/** Duration of the lap this driver is currently running. */
+function currentLapDuration(dn: number, lapsCompleted: number): number {
+  const cum = CUM_TIMES_MAP.get(dn);
+  if (!cum || cum.length < 2) return 90;
+  const i = Math.min(lapsCompleted, cum.length - 2);
+  return cum[i + 1] - cum[i];
+}
+
 // ─── Compute track positions (0-1 fraction along SVG path) ───────────────────
 export function computeTrackPositions(simTime: number): Map<number, number> {
   const map = new Map<number, number>();
@@ -121,41 +129,36 @@ function deriveState(simTime: number): F1State {
     return { ...mockF1State, positions: [], intervals: [], laps: [], pits: [], raceControl: [], stints: {}, ersStates: {}, currentLap: 0, lastUpdated: new Date() };
   }
 
-  // Current completed laps per driver (integer)
-  const completedLaps = new Map<number, number>();
-  const cumAtTime = new Map<number, number>();
-
+  // Track progress (distance covered, in laps) per driver at this instant
+  const progress = new Map<number, ReturnType<typeof driverProgress>>();
   for (const d of mockF1State.drivers) {
-    const dp = driverProgress(d.driver_number, simTime);
-    completedLaps.set(d.driver_number, dp.lapsCompleted);
-    // Cumulative race time elapsed = time to complete their laps so far
-    const cumTimes = CUM_TIMES_MAP.get(d.driver_number) ?? [0];
-    cumAtTime.set(d.driver_number, Math.min(simTime, cumTimes.at(-1) ?? simTime));
+    progress.set(d.driver_number, driverProgress(d.driver_number, simTime));
   }
+  const totalFraction = (dn: number) => progress.get(dn)?.totalFraction ?? 0;
 
   // Sort by total progress descending (most laps + fraction = leader)
   const ranked = mockF1State.drivers
     .filter((d) => (CUM_TIMES_MAP.get(d.driver_number)?.length ?? 0) > 1) // has laps
-    .sort((a, b) => {
-      const pa = driverProgress(a.driver_number, simTime).totalFraction;
-      const pb = driverProgress(b.driver_number, simTime).totalFraction;
-      return pb - pa; // higher totalFraction = further ahead
-    });
-
-  const leaderCumTime = cumAtTime.get(ranked[0]?.driver_number ?? LEADER_DN) ?? simTime;
+    .sort((a, b) => totalFraction(b.driver_number) - totalFraction(a.driver_number));
 
   const positions: Position[] = ranked.map((d, i) => ({
     driver_number: d.driver_number, date: '', position: i + 1, session_key: 9500, meeting_key: 1201,
   }));
 
+  const leaderFraction = totalFraction(ranked[0]?.driver_number ?? LEADER_DN);
+
   const intervals: Interval[] = ranked.map((d, i) => {
-    const myTime = cumAtTime.get(d.driver_number) ?? 0;
-    const prevTime = i > 0 ? (cumAtTime.get(ranked[i - 1].driver_number) ?? 0) : myTime;
+    const mine = totalFraction(d.driver_number);
+    const ahead = i > 0 ? totalFraction(ranked[i - 1].driver_number) : mine;
+    // Each driver runs their own lap-time sequence, so there is no shared race
+    // clock to subtract. Convert the distance deficit (in laps) into seconds
+    // using the lap this driver is currently on.
+    const lapTime = currentLapDuration(d.driver_number, progress.get(d.driver_number)?.lapsCompleted ?? 0);
     return {
       driver_number: d.driver_number,
       date: '',
-      gap_to_leader: i === 0 ? 0 : parseFloat((myTime - leaderCumTime).toFixed(3)),
-      interval: i === 0 ? 0 : parseFloat((myTime - prevTime).toFixed(3)),
+      gap_to_leader: i === 0 ? 0 : parseFloat(((leaderFraction - mine) * lapTime).toFixed(3)),
+      interval: i === 0 ? 0 : parseFloat(((ahead - mine) * lapTime).toFixed(3)),
       session_key: 9500,
       meeting_key: 1201,
     };

@@ -3,6 +3,8 @@ import type { F1State } from '../types/f1';
 import { useTrackLayout } from '../hooks/useTrackLayout';
 import { getTeamColor } from '../utils/teamColors';
 import { formatLapTime, formatGap, getTyreColor, getTyreLabel } from '../utils/tyreUtils';
+import { computeBestLaps, lapTimeColor } from '../utils/lapUtils';
+import { currentNeutralisation, NEUTRALISATION_LABEL, NEUTRALISATION_COLOR } from '../utils/raceStatus';
 import { STARTING_GRID } from '../mocks/australianGP2026';
 
 interface Props {
@@ -89,12 +91,9 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
     [pits, currentLap]
   );
 
-  // ── Fastest lap ───────────────────────────────────────────────────────────
-  const fastestLap = useMemo(() => {
-    const valid = laps.filter(l => l.lap_duration != null && l.lap_duration > 60) as typeof laps;
-    if (!valid.length) return null;
-    return valid.reduce((best, l) => (l.lap_duration! < best.lap_duration! ? l : best));
-  }, [laps]);
+  // ── Best laps (overall + per driver) ──────────────────────────────────────
+  const bestLaps = useMemo(() => computeBestLaps(laps), [laps]);
+  const fastestLap = bestLaps.overall;
 
   // ── Overtake pairs (within 1 s) ───────────────────────────────────────────
   const overtakePairs = useMemo(() => {
@@ -125,13 +124,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
   }, [sorted, stints]);
 
   // ── Active flags ─────────────────────────────────────────────────────────
-  const activeFlag = useMemo(() => {
-    const recent = [...raceControl].reverse().slice(0, 10);
-    if (recent.some(r => r.message.toLowerCase().includes('red flag'))) return 'red';
-    if (recent.some(r => r.message.toLowerCase().includes('safety car deployed'))) return 'sc';
-    if (recent.some(r => r.message.toLowerCase().includes('virtual safety car'))) return 'vsc';
-    return null;
-  }, [raceControl]);
+  const activeFlag = useMemo(() => currentNeutralisation(raceControl), [raceControl]);
 
   // ── Mini map car points ───────────────────────────────────────────────────
   const miniCarPoints = useMemo(() => {
@@ -164,7 +157,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
   const raceLaps = Math.max(totalLaps, currentLap, 1);
   const rcSorted = useMemo(() => [...raceControl].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [raceControl]);
 
-  const flagBarColor = activeFlag === 'red' ? '#dc2626' : activeFlag === 'sc' || activeFlag === 'vsc' ? '#d97706' : null;
+  const flagBarColor = activeFlag ? NEUTRALISATION_COLOR[activeFlag] : null;
 
   // ── Empty state ───────────────────────────────────────────────────────────
   if (!sorted.length) {
@@ -184,7 +177,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
         {/* Flag status */}
         {activeFlag && (
           <span style={{ fontSize: 11, fontWeight: 800, color: flagBarColor!, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '1px 8px', backgroundColor: flagBarColor! + '22', borderRadius: 4, border: `1px solid ${flagBarColor!}44` }}>
-            {activeFlag === 'red' ? '🚩 RED FLAG' : activeFlag === 'sc' ? '🚗 SAFETY CAR' : '🚗 VSC'}
+            {NEUTRALISATION_LABEL[activeFlag]}
           </span>
         )}
 
@@ -284,7 +277,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
                       <td style={td('right', 10, '#6b7280', 'mono')}>
                         {pos.position === 1 ? '—' : intv?.interval != null ? `+${Number(intv.interval).toFixed(3)}` : '—'}
                       </td>
-                      <td style={td('right', 10, isFL ? '#a855f7' : '#9ca3af', 'mono')}>
+                      <td style={td('right', 10, lapTimeColor(pos.driver_number, lastLap, bestLaps), 'mono')}>
                         {formatLapTime(lastLap)}
                       </td>
                       <td style={td('center')}>

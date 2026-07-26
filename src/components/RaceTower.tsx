@@ -3,6 +3,7 @@ import type { F1State } from '../types/f1';
 import EmptyState from './EmptyState';
 import { getTeamColor } from '../utils/teamColors';
 import { formatLapTime, formatGap, getTyreColor, getTyreLabel } from '../utils/tyreUtils';
+import { computeBestLaps, lapTimeColor } from '../utils/lapUtils';
 import { STARTING_GRID } from '../mocks/australianGP2026';
 
 interface Props {
@@ -56,6 +57,8 @@ export default function RaceTower({ state }: Props) {
 
   // Sort by position
   const sorted = useMemo(() => [...positions].sort((a, b) => a.position - b.position), [positions]);
+
+  const bestLaps = useMemo(() => computeBestLaps(laps), [laps]);
 
   if (!sorted.length) {
     return <EmptyState icon="🏁" title="Waiting for position data" subtitle="Live standings will appear once the session starts." />;
@@ -124,7 +127,12 @@ export default function RaceTower({ state }: Props) {
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-5 rounded-full" style={{ backgroundColor: teamColor }} />
                     <div>
-                      <div className="font-bold text-white">{driver.name_acronym}</div>
+                      <div className="font-bold text-white flex items-center gap-1.5">
+                        {driver.name_acronym}
+                        {bestLaps.overall?.driver_number === pos.driver_number && (
+                          <span className="text-[9px] font-black text-purple-400 tracking-wider">FL</span>
+                        )}
+                      </div>
                       <div className="text-xs text-gray-500">{driver.broadcast_name}</div>
                     </div>
                   </div>
@@ -144,8 +152,11 @@ export default function RaceTower({ state }: Props) {
                   )}
                 </td>
 
-                {/* Last Lap */}
-                <td className="py-2.5 px-3 text-right font-mono text-gray-300 hidden sm:table-cell">
+                {/* Last Lap — purple for session best, green for personal best */}
+                <td
+                  className="py-2.5 px-3 text-right font-mono hidden sm:table-cell"
+                  style={{ color: lapTimeColor(pos.driver_number, lastLap, bestLaps) }}
+                >
                   {formatLapTime(lastLap)}
                 </td>
 

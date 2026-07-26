@@ -77,7 +77,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#030712', color: '#f3f4f6', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100vh', overflow: 'hidden', backgroundColor: '#030712', color: '#f3f4f6', display: 'flex', flexDirection: 'column' }}>
       <Header state={state} />
 
       {/* ── Mode selector bar ──────────────────────────────────────────────── */}
@@ -176,7 +176,8 @@ export default function App() {
       </div>
 
       {/* ── Content ──────────────────────────────────────────────────────────── */}
-      <main style={{ flex: 1 }}>
+      {/* Command Center manages its own internal scrolling; other tabs scroll as one page */}
+      <main style={{ flex: 1, minHeight: 0, overflowY: activeTab === 'command' ? 'hidden' : 'auto' }}>
         {activeTab === 'champ' ? (
           <Championship />
         ) : loading ? (
