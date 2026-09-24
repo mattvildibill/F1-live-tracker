@@ -7,7 +7,7 @@ interface Props {
 
 function FlagBadge({ message }: { message: string }) {
   const lower = message.toLowerCase();
-  if (lower.includes('red flag')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-600 text-white">RED FLAG</span>;
+  if (/\bred flag\b/.test(lower)) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-600 text-white">RED FLAG</span>;
   // VSC must be tested before the broader "safety car" match
   if (lower.includes('virtual safety car') || lower.includes('vsc')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-400 text-black">VSC</span>;
   if (lower.includes('safety car')) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-500 text-black">SC</span>;

@@ -23,7 +23,7 @@ function flagStyle(rc: RaceControl): { bg: string; text: string; label: string }
   const flag = (rc.flag ?? '').toLowerCase();
 
   if (msg.includes('[team radio]')) return { bg: 'bg-indigo-950/40 border-indigo-800/40', text: 'text-indigo-300', label: '📻 TEAM RADIO' };
-  if (flag === 'red' || msg.includes('red flag')) return { bg: 'bg-red-900/60 border-red-700/50', text: 'text-red-300', label: '🚩 RED FLAG' };
+  if (flag === 'red' || /\bred flag\b/.test(msg)) return { bg: 'bg-red-900/60 border-red-700/50', text: 'text-red-300', label: '🚩 RED FLAG' };
   if (flag === 'double yellow' || msg.includes('double yellow')) return { bg: 'bg-yellow-900/60 border-yellow-600/50', text: 'text-yellow-200', label: '🟡🟡 DOUBLE YELLOW' };
   if (flag === 'yellow' || msg.includes('yellow')) return { bg: 'bg-yellow-900/40 border-yellow-700/40', text: 'text-yellow-300', label: '🟡 YELLOW' };
   if (msg.includes('safety car deployed')) return { bg: 'bg-orange-900/40 border-orange-700/40', text: 'text-orange-300', label: '🚗 SAFETY CAR' };

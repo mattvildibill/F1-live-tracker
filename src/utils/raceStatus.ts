@@ -10,7 +10,8 @@ export type Neutralisation = 'red' | 'sc' | 'vsc' | null;
 export function currentNeutralisation(raceControl: RaceControl[]): Neutralisation {
   for (let i = raceControl.length - 1; i >= 0; i--) {
     const msg = raceControl[i].message.toLowerCase();
-    if (msg.includes('red flag')) return 'red';
+    if (/\b(?:chequered|checkered) flag\b/.test(msg)) return null;
+    if (/\bred flag\b/.test(msg)) return 'red';
     if (msg.includes('virtual safety car')) {
       return msg.includes('ending') || msg.includes('deleted') ? null : 'vsc';
     }

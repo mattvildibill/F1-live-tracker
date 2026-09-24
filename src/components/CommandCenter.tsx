@@ -26,7 +26,7 @@ function ERSMini({ charge }: { charge: number }) {
 function RCBadge({ message, flag }: { message: string; flag: string | null }) {
   const msg = message.toLowerCase();
   const f = (flag ?? '').toLowerCase();
-  if (f === 'red' || msg.includes('red flag'))   return <span style={badge('#dc2626','#fca5a5')}>RED</span>;
+  if (f === 'red' || /\bred flag\b/.test(msg))   return <span style={badge('#dc2626','#fca5a5')}>RED</span>;
   if (msg.includes('safety car deployed'))        return <span style={badge('#d97706','#fde68a')}>SC</span>;
   if (msg.includes('virtual safety car'))         return <span style={badge('#d97706','#fde68a')}>VSC</span>;
   if (f === 'yellow' || msg.includes('yellow'))  return <span style={badge('#ca8a04','#fef08a')}>YEL</span>;

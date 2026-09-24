@@ -50,7 +50,7 @@ export function useRaceAlerts(state: F1State, enabled: boolean): {
           push({ type: 'safety-car', message: `Safety Car deployed — Lap ${rc.lap_number ?? '?'}`, color: '#f59e0b' });
         } else if (msg.includes('virtual safety car')) {
           push({ type: 'vsc', message: `Virtual Safety Car — Lap ${rc.lap_number ?? '?'}`, color: '#f59e0b' });
-        } else if (msg.includes('red flag')) {
+        } else if (/\bred flag\b/.test(msg)) {
           push({ type: 'red-flag', message: `Red Flag — Lap ${rc.lap_number ?? '?'}`, color: '#ef4444' });
         } else if (msg.includes('drs enabled')) {
           push({ type: 'drs', message: 'DRS Enabled', color: '#22c55e' });
