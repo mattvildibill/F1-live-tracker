@@ -33,7 +33,7 @@ export default function SimulatorControls({ controls, currentLap }: Props) {
 
       {/* Badge */}
       <span style={{ backgroundColor: '#1e3a8a', color: '#93c5fd', fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
-        Simulation · 2026 Australian GP
+        Synthetic demo · Australian GP
       </span>
 
       {/* Reset */}
@@ -62,6 +62,7 @@ export default function SimulatorControls({ controls, currentLap }: Props) {
       {/* Scrubber */}
       <div style={{ flex: 1, minWidth: '180px', display: 'flex', alignItems: 'center', gap: '8px' }}>
         <input
+          aria-label="Demo race time"
           type="range"
           min={0}
           max={totalSimSeconds}

@@ -1,3 +1,4 @@
+import PositionHistory from './PositionHistory';
 import { useRef, useEffect, useState, useMemo } from 'react';
 import type { F1State } from '../types/f1';
 import { getTeamColor } from '../utils/teamColors';
@@ -21,7 +22,8 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
   const sessionKey = state.session?.session_key;
 
   // Try to load real GPS-derived layout; falls back to hand-crafted Albert Park
-  const layout = useTrackLayout(sessionKey);
+  const referenceLap = state.laps.find(l => l.date_start && l.lap_duration && !l.is_pit_out_lap && l.lap_number > 1);
+  const layout = useTrackLayout(sessionKey, referenceLap?.driver_number, referenceLap?.date_start, referenceLap?.lap_duration);
 
   const pathRef  = useRef<SVGPathElement>(null);
   const [totalLength, setTotalLength] = useState(0);
@@ -142,6 +144,8 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
   }, [totalLength]);
 
   const { drsPolylines, sectorPts, turnPts, kerbPts } = trackDecorations;
+
+  if (state.source !== 'demo') return <><PositionHistory state={state}/>{layout.isFromAPI && <div style={{padding:24}}><p className="fine-print">{state.session?.circuit_short_name} · Circuit outline from one recorded GPS lap. Live car positions unavailable.</p><svg viewBox={layout.viewBox} style={{width:'100%',maxHeight:500}} role="img" aria-label="Recorded circuit outline"><path d={layout.svgPath} fill="none" stroke="#5eead4" strokeWidth={5}/></svg></div>}</>;
 
   return (
     <div style={{ display: 'flex', gap: '12px', padding: '16px', height: '100%', alignItems: 'flex-start', flexWrap: 'wrap' }} className="track-map-root">

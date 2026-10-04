@@ -6,17 +6,11 @@ import {
 } from '../mocks/australianGP2026';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-export type PlaybackSpeed = 1 | 2 | 5 | 10 | 20;
-export const SPEEDS: PlaybackSpeed[] = [1, 2, 5, 10, 20];
+export type PlaybackSpeed = 1 | 5 | 20 | 60 | 300;
+export const SPEEDS: PlaybackSpeed[] = [1, 5, 20, 60, 300];
 
 // Sim-seconds advanced per 50ms tick at each speed label
-const SIM_SEC_PER_TICK: Record<PlaybackSpeed, number> = {
-  1:  0.5,   // ~10 sim-sec/real-sec  → 1 lap ≈ 16s real
-  2:  1.5,   // ~30 sim-sec/real-sec  → 1 lap ≈ 5.5s real
-  5:  3.0,   // ~60 sim-sec/real-sec  → 1 lap ≈ 2.8s real
-  10: 6.0,   // ~120 sim-sec/real-sec → 1 lap ≈ 1.4s real
-  20: 15.0,  // ~300 sim-sec/real-sec → full race ≈ 16s real
-};
+const SIM_SEC_PER_TICK: Record<PlaybackSpeed, number> = { 1: .05, 5: .25, 20: 1, 60: 3, 300: 15 };
 const TICK_MS = 50; // 20 fps
 
 // ─── Precomputed cumulative lap times per driver ───────────────────────────────
@@ -126,7 +120,7 @@ function buildStints(lapsUpTo: typeof mockLaps, pitsUpTo: typeof mockPits): Driv
 
 function deriveState(simTime: number): F1State {
   if (simTime <= 0) {
-    return { ...mockF1State, positions: [], intervals: [], laps: [], pits: [], raceControl: [], stints: {}, ersStates: {}, currentLap: 0, lastUpdated: new Date() };
+    return { ...mockF1State, positions: [], intervals: [], laps: [], pits: [], raceControl: [], stints: {}, ersStates: {}, carData: [], weather: null, teamRadio: [], locations: [], currentLap: 0, lastUpdated: new Date() };
   }
 
   // Track progress (distance covered, in laps) per driver at this instant
@@ -213,14 +207,14 @@ export interface SimControls {
   setSpeed: (s: PlaybackSpeed) => void;
 }
 
-export function useRaceSimulator(): {
+export function useRaceSimulator(enabled = true): {
   state: F1State;
   controls: SimControls;
   driverTrackPositions: Map<number, number>;
 } {
   const [simTime, setSimTime]   = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [speed, setSpeed]       = useState<PlaybackSpeed>(5);
+  const [speed, setSpeed]       = useState<PlaybackSpeed>(60);
   const tickRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const tick = useCallback(() => {
@@ -232,9 +226,9 @@ export function useRaceSimulator(): {
 
   useEffect(() => {
     clearInterval(tickRef.current);
-    if (isPlaying) tickRef.current = setInterval(tick, TICK_MS);
+    if (isPlaying && enabled) tickRef.current = setInterval(tick, TICK_MS);
     return () => clearInterval(tickRef.current);
-  }, [isPlaying, tick]);
+  }, [isPlaying, tick, enabled]);
 
   const state                 = useMemo(() => deriveState(simTime), [simTime]);
   const driverTrackPositions  = useMemo(() => computeTrackPositions(simTime), [simTime]);

@@ -22,7 +22,7 @@ export function deriveStints(laps: Lap[], pits: Pit[], apiStints?: OpenF1Stint[]
 
   // Fallback: derive from lap history + pit stops (compound assumed via rotation)
   const stints: DriverStints = {};
-  const compounds = ['SOFT', 'MEDIUM', 'HARD'];
+  const compounds = ['UNKNOWN'];
   const driverNums = [...new Set(laps.map((l) => l.driver_number))];
 
   for (const dn of driverNums) {

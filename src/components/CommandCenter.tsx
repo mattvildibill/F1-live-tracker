@@ -1,3 +1,4 @@
+import PositionHistory from './PositionHistory';
 import { useMemo, useRef, useEffect, useState } from 'react';
 import type { F1State } from '../types/f1';
 import { useTrackLayout } from '../hooks/useTrackLayout';
@@ -56,7 +57,8 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
   } = state;
 
   const sessionKey = state.session?.session_key;
-  const layout = useTrackLayout(sessionKey);
+  const referenceLap = state.laps.find(l => l.date_start && l.lap_duration && !l.is_pit_out_lap && l.lap_number > 1);
+  const layout = useTrackLayout(sessionKey, referenceLap?.driver_number, referenceLap?.date_start, referenceLap?.lap_duration);
 
   // ── Mini map path ref ─────────────────────────────────────────────────────
   const pathRef = useRef<SVGPathElement>(null);
@@ -237,7 +239,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
                   const teamColor = getTeamColor(driver.team_name, driver.team_colour);
                   const isPitting = inPitSet.has(pos.driver_number);
                   const pitCount  = pitCountMap.get(pos.driver_number) ?? 0;
-                  const gridPos   = STARTING_GRID[pos.driver_number];
+                  const gridPos   = (state.startingGrid ?? (state.source === 'demo' ? STARTING_GRID : {}))[pos.driver_number];
                   const delta     = gridPos != null && gridPos > 0 ? gridPos - pos.position : null;
                   const driverStints = stints[pos.driver_number] ?? [];
                   const stint    = driverStints.at(-1);
@@ -308,7 +310,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
           {/* Mini track map */}
           <SectionHead>Track Position {layout.isFromAPI && <span style={{ color: '#22c55e', fontWeight: 400 }}>● GPS</span>}</SectionHead>
           <div style={{ flex: '0 0 auto', padding: '4px 6px' }}>
-            <svg
+            {state.source !== 'demo' ? <PositionHistory state={state} compact/> : <svg
               viewBox={layout.viewBox}
               style={{ width: '100%', maxHeight: 220, display: 'block', backgroundColor: '#030712', borderRadius: 6, border: '1px solid #1f2937' }}
             >
@@ -333,7 +335,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
                   </g>
                 );
               })}
-            </svg>
+            </svg>}
           </div>
 
           {/* Overtake Zone */}

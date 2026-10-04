@@ -60,8 +60,8 @@ export default function ERSPanel({ state }: Props) {
     }
   }
 
-  if (!sorted.length) {
-    return <EmptyState icon="⚡" title="Waiting for ERS data" subtitle="Battery states will appear once car telemetry arrives." />;
+  if (!Object.keys(ersStates).length) {
+    return <EmptyState icon="⚡" title="Battery charge is unavailable" subtitle="Battery charge is not published by these feeds. Synthetic estimates are available only in the offline demo." />;
   }
 
   return (

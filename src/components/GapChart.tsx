@@ -55,13 +55,12 @@ export default function GapChart({ state }: Props) {
       );
 
       // Cumulative time difference from leader
-      let cumulativeGap = 0;
+
       const data = last15.map((ln) => {
         const myTime = driverLaps.get(ln);
         const leaderTime = leaderLaps.get(ln);
         if (myTime != null && leaderTime != null && dn !== leaderNum) {
-          cumulativeGap += myTime - leaderTime;
-          return parseFloat(cumulativeGap.toFixed(3));
+          return parseFloat((myTime - leaderTime).toFixed(3));
         }
         if (dn === leaderNum) return 0;
         return null;
@@ -87,21 +86,21 @@ export default function GapChart({ state }: Props) {
       legend: { labels: { color: '#9ca3af', boxWidth: 12 } },
       title: {
         display: true,
-        text: 'Gap to Leader — Last 15 Laps (Top 6)',
+        text: 'Lap-time difference vs current P1 — last 15 laps',
         color: '#6b7280',
         font: { size: 12 },
       },
       tooltip: {
         callbacks: {
           label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
-            `${ctx.dataset.label}: +${(ctx.parsed.y ?? 0).toFixed(3)}s`,
+            `${ctx.dataset.label}: ${(ctx.parsed.y ?? 0) > 0 ? '+' : ''}${(ctx.parsed.y ?? 0).toFixed(3)}s`,
         },
       },
     },
     scales: {
       x: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } },
       y: {
-        ticks: { color: '#6b7280', callback: (v: number | string) => `+${Number(v).toFixed(1)}s` },
+        ticks: { color: '#6b7280', callback: (v: number | string) => `${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(1)}s` },
         grid: { color: '#1f2937' },
       },
     },

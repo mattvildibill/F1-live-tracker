@@ -1,129 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
-import type { Meeting, Session } from '../types/f1';
-
-import { OPENF1_BASE as BASE } from '../utils/api';
-
-
-interface Props {
-  currentSessionKey: number | null;
-  onSelect: (sessionKey: number | null) => void; // null = back to latest
-}
-
-/**
- * Browse any OpenF1 meeting/session back to 2023 and load it into the cockpit.
- * Fetches lazily: years → meetings on open, sessions when a meeting is picked.
- */
-export default function SessionPicker({ currentSessionKey, onSelect }: Props) {
-  const [open, setOpen] = useState(false);
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [meetingKey, setMeetingKey] = useState<number | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const years = useMemo(() => {
-    const y = new Date().getFullYear();
-    const list = [];
-    for (let i = y; i >= 2023; i--) list.push(i);
-    return list;
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setLoading(true);
-    setMeetings([]); setMeetingKey(null); setSessions([]);
-    fetch(`${BASE}/meetings?year=${year}`)
-      .then((r) => r.json())
-      .then((rows: Meeting[]) => {
-        if (cancelled) return;
-        setMeetings([...rows].sort((a, b) => new Date(b.date_start).getTime() - new Date(a.date_start).getTime()));
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [open, year]);
-
-  useEffect(() => {
-    if (meetingKey == null) { setSessions([]); return; }
-    let cancelled = false;
-    fetch(`${BASE}/sessions?meeting_key=${meetingKey}`)
-      .then((r) => r.json())
-      .then((rows: Session[]) => {
-        if (!cancelled) setSessions([...rows].sort((a, b) => new Date(a.date_start).getTime() - new Date(b.date_start).getTime()));
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [meetingKey]);
-
-  const btnCls =
-    'px-3 py-1 rounded text-xs font-semibold border border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800 cursor-pointer';
-
-  return (
-    <div className="relative inline-block">
-      <button className={btnCls} onClick={() => setOpen((o) => !o)}>
-        📅 {currentSessionKey ? 'Session loaded' : 'Browse sessions'} {open ? '▴' : '▾'}
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 w-80 max-h-96 overflow-y-auto rounded-lg border border-gray-700 bg-gray-950 shadow-xl p-3 space-y-3">
-          <div className="flex items-center gap-2">
-            <select
-              className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200 flex-1"
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-            >
-              {years.map((y) => <option key={y} value={y}>{y} season</option>)}
-            </select>
-            {currentSessionKey && (
-              <button
-                className="text-xs text-red-400 hover:text-red-300"
-                onClick={() => { onSelect(null); setOpen(false); }}
-              >
-                ✕ Back to latest
-              </button>
-            )}
-          </div>
-
-          {loading && <p className="text-xs text-gray-500">Loading meetings…</p>}
-
-          {!meetingKey && meetings.map((m) => (
-            <button
-              key={m.meeting_key}
-              className="block w-full text-left px-2 py-1.5 rounded hover:bg-gray-900 text-sm text-gray-300"
-              onClick={() => setMeetingKey(m.meeting_key)}
-            >
-              <span className="font-semibold">{m.meeting_name}</span>
-              <span className="text-xs text-gray-600 ml-2">{m.location}</span>
-            </button>
-          ))}
-
-          {meetingKey != null && (
-            <>
-              <button className="text-xs text-gray-500 hover:text-gray-300" onClick={() => setMeetingKey(null)}>
-                ← All {year} events
-              </button>
-              {sessions.map((s) => (
-                <button
-                  key={s.session_key}
-                  className={`block w-full text-left px-2 py-1.5 rounded text-sm ${
-                    s.session_key === currentSessionKey
-                      ? 'bg-red-950/40 text-red-300'
-                      : 'hover:bg-gray-900 text-gray-300'
-                  }`}
-                  onClick={() => { onSelect(s.session_key); setOpen(false); }}
-                >
-                  <span className="font-semibold">{s.session_name}</span>
-                  <span className="text-xs text-gray-600 ml-2">
-                    {new Date(s.date_start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </span>
-                </button>
-              ))}
-              {!sessions.length && <p className="text-xs text-gray-500">Loading sessions…</p>}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
+import { useEffect, useState } from 'react';
+import { openF1 } from '../utils/data';
+import type { Session, Meeting } from '../types/f1';
+export default function SessionPicker({ currentSessionKey, onSelect }: { currentSessionKey:number|null; onSelect:(key:number|null)=>void }) {
+  const [open,setOpen]=useState(false), [year,setYear]=useState(new Date().getFullYear()), [meeting,setMeeting]=useState<number|null>(null), [meetings,setMeetings]=useState<Meeting[]>([]), [sessions,setSessions]=useState<Session[]>([]), [loading,setLoading]=useState(false), [error,setError]=useState<string|null>(null), [retry,setRetry]=useState(0);
+  useEffect(()=>{
+    if(!open)return;
+    const c=new AbortController(); setLoading(true);setError(null);setMeetings([]);setSessions([]);
+    const task=meeting?openF1<Session>(`/sessions?meeting_key=${meeting}`,c.signal).then(rows=>{if(!c.signal.aborted)setSessions(rows.sort((a,b)=>Date.parse(a.date_start)-Date.parse(b.date_start)));}):openF1<Meeting>(`/meetings?year=${year}`,c.signal).then(rows=>{if(!c.signal.aborted)setMeetings(rows.sort((a,b)=>Date.parse(b.date_start)-Date.parse(a.date_start)));});
+    task.catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setLoading(false);});
+    return()=>c.abort();
+  },[open,year,meeting,retry]);
+  return <div style={{position:'relative'}}><button aria-expanded={open} onClick={()=>setOpen(!open)}>Browse sessions {open?'▴':'▾'}</button>{open&&<div className="session-picker" onKeyDown={e=>{if(e.key==='Escape')setOpen(false);}}><div className="flex justify-between gap-2"><label>Season <select aria-label="Session season" value={year} onChange={e=>{setYear(Number(e.target.value));setMeeting(null);}}>{Array.from({length:new Date().getFullYear()-2022},(_,i)=>new Date().getFullYear()-i).map(y=><option key={y}>{y}</option>)}</select></label><button aria-label="Close session browser" onClick={()=>setOpen(false)}>×</button></div>{currentSessionKey!=null&&<button onClick={()=>{onSelect(null);setOpen(false);}}>Return to current weekend</button>}{meeting&&<button onClick={()=>setMeeting(null)}>← All events</button>}{loading&&<p>Loading sessions…</p>}{error&&<><p role="status">{error}</p><button onClick={()=>setRetry(n=>n+1)}>Retry</button></>}{!loading&&!error&&!meetings.length&&!sessions.length&&<p>No sessions published yet.</p>}{meetings.map(m=><button key={m.meeting_key} onClick={()=>setMeeting(m.meeting_key)}>{m.meeting_name} · {m.location}</button>)}{sessions.map(s=><button key={s.session_key} onClick={()=>{onSelect(s.session_key);setOpen(false);}}>{s.session_name} · {new Date(s.date_start).toLocaleString()}</button>)}</div>}</div>;
 }

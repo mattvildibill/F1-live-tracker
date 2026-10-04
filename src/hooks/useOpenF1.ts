@@ -1,223 +1,59 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type {
-  F1State, Session, Driver, Position, Interval, Lap,
-  CarData, Pit, RaceControl, Weather, Location, OpenF1Stint,
-  TeamRadioMsg,
-} from '../types/f1';
-import { useErsEstimator } from './useErsEstimator';
-import { mockF1State } from '../mocks/australianGP2026';
+import { useState, useEffect } from 'react';
+import type { F1State, Session, Driver, Position, Interval, Lap, Pit, RaceControl, Weather, OpenF1Stint, TeamRadioMsg } from '../types/f1';
+import { EMPTY_STATE, openF1, sessionPhase, type Race } from '../utils/data';
 import { deriveStints } from '../utils/stintUtils';
-import { OPENF1_BASE as BASE } from '../utils/api';
-
-const POLL_MS = 3000;
-const API_FAIL_THRESHOLD = 2; // use mock after this many consecutive failures
-
-async function apiFetch<T>(path: string): Promise<T[]> {
-  const res = await fetch(`${BASE}${path}`);
-  if (!res.ok) throw new Error(`OpenF1 ${path} → ${res.status}`);
-  return res.json();
-}
-
-function latestByDriver<T extends { driver_number: number }>(items: T[]): T[] {
-  const map = new Map<number, T>();
-  for (const item of items) map.set(item.driver_number, item);
-  return Array.from(map.values());
-}
-
-const INITIAL_STATE: F1State = {
-  session: null,
-  drivers: [],
-  positions: [],
-  intervals: [],
-  laps: [],
-  carData: [],
-  pits: [],
-  raceControl: [],
-  weather: null,
-  locations: [],
-  stints: {},
-  teamRadio: [],
-  ersStates: {},
-  isLive: false,
-  isStale: false,
-  lastUpdated: null,
-  currentLap: 0,
-  totalLaps: 0,
-};
-
-export function useOpenF1(enabled = true, sessionKeyOverride: number | null = null) {
-  const [state, setState] = useState<F1State>(INITIAL_STATE);
-  const sessionKeyRef = useRef<number | string>('latest');
-  const allLapsRef = useRef<Lap[]>([]);
-  const allPitsRef = useRef<Pit[]>([]);
-  const allRaceControlRef = useRef<RaceControl[]>([]);
-  const allStintsRef = useRef<OpenF1Stint[]>([]);
-  const failCountRef = useRef(0);
-  const usingMockRef = useRef(false);
-  const { update: updateErs } = useErsEstimator();
-
-  const fetchAll = useCallback(async () => {
-    // If already on mock, don't keep hammering the API
-    if (usingMockRef.current) return;
-
-    const sk = sessionKeyRef.current;
-    const q = `session_key=${sk}`;
-
-    try {
-      const [positions, intervals, latestLaps, carDataArr, pits, raceControl, weatherArr, locations, drivers, stintsRes, teamRadioArr] =
-        await Promise.allSettled([
-          apiFetch<Position>(`/position?${q}`),
-          apiFetch<Interval>(`/intervals?${q}`),
-          apiFetch<Lap>(`/laps?${q}`),
-          apiFetch<CarData>(`/car_data?${q}&speed>=0`),
-          apiFetch<Pit>(`/pit?${q}`),
-          apiFetch<RaceControl>(`/race_control?${q}`),
-          apiFetch<Weather>(`/weather?${q}`),
-          apiFetch<Location>(`/location?${q}`),
-          apiFetch<Driver>(`/drivers?${q}`),
-          apiFetch<OpenF1Stint>(`/stints?${q}`),
-          apiFetch<TeamRadioMsg>(`/team_radio?${q}`),
-        ]);
-
-      const getVal = <T>(r: PromiseSettledResult<T[]>): T[] =>
-        r.status === 'fulfilled' ? r.value : [];
-
-      const posArr = getVal(positions);
-      const intArr = getVal(intervals);
-      const lapArr = getVal(latestLaps);
-      const cdArr = getVal(carDataArr);
-      const pitArr = getVal(pits);
-      const rcArr = getVal(raceControl);
-      const wArr = getVal(weatherArr);
-      const locArr = getVal(locations);
-      const drvArr = getVal(drivers);
-      const stintsArr = getVal(stintsRes);
-      const radioArr = getVal(teamRadioArr);
-
-      // If every endpoint failed, count as a failure
-      const totalData = posArr.length + intArr.length + lapArr.length + drvArr.length;
-      if (totalData === 0) {
-        failCountRef.current++;
-        if (failCountRef.current >= API_FAIL_THRESHOLD) {
-          usingMockRef.current = true;
-          setState({ ...mockF1State, isStale: false, lastUpdated: new Date() });
-        } else {
-          setState((prev) => ({ ...prev, isStale: true }));
-        }
-        return;
-      }
-
-      // Successful fetch — reset fail count
-      failCountRef.current = 0;
-
-      for (const lap of lapArr) {
-        const exists = allLapsRef.current.find(
-          (l) => l.driver_number === lap.driver_number && l.lap_number === lap.lap_number
-        );
-        if (!exists) allLapsRef.current.push(lap);
-      }
-
-      for (const pit of pitArr) {
-        const exists = allPitsRef.current.find(
-          (p) => p.driver_number === pit.driver_number && p.lap_number === pit.lap_number
-        );
-        if (!exists) allPitsRef.current.push(pit);
-      }
-
-      for (const rc of rcArr) {
-        const exists = allRaceControlRef.current.find((r) => r.date === rc.date && r.message === rc.message);
-        if (!exists) allRaceControlRef.current.push(rc);
-      }
-
-      // Stints: replace by driver+stint_number (API returns full list each poll)
-      for (const s of stintsArr) {
-        const idx = allStintsRef.current.findIndex(
-          (x) => x.driver_number === s.driver_number && x.stint_number === s.stint_number
-        );
-        if (idx === -1) allStintsRef.current.push(s);
-        else allStintsRef.current[idx] = s; // update lap_end as stint progresses
-      }
-
-      const latestPos = latestByDriver(posArr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-      const latestInt = latestByDriver(intArr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-      const latestCar = latestByDriver(cdArr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-      const latestLoc = latestByDriver(locArr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-
-      const weather = wArr.length ? wArr[wArr.length - 1] : null;
-      const stints = deriveStints(allLapsRef.current, allPitsRef.current, allStintsRef.current);
-      const ersStates = latestCar.length ? updateErs(latestCar) : {};
-      const currentLap = allLapsRef.current.length
-        ? Math.max(...allLapsRef.current.map((l) => l.lap_number))
-        : 0;
-
-      setState((prev) => ({
-        ...prev,
-        drivers: drvArr.length ? drvArr : prev.drivers,
-        positions: latestPos.length ? latestPos : prev.positions,
-        intervals: latestInt.length ? latestInt : prev.intervals,
-        laps: allLapsRef.current,
-        carData: latestCar.length ? latestCar : prev.carData,
-        pits: allPitsRef.current,
-        raceControl: allRaceControlRef.current,
-        teamRadio: radioArr.length ? radioArr : prev.teamRadio,
-        weather,
-        locations: latestLoc.length ? latestLoc : prev.locations,
-        stints,
-        ersStates,
-        isStale: false,
-        lastUpdated: new Date(),
-        currentLap,
-      }));
-    } catch {
-      failCountRef.current++;
-      if (failCountRef.current >= API_FAIL_THRESHOLD) {
-        usingMockRef.current = true;
-        setState({ ...mockF1State, isStale: false, lastUpdated: new Date() });
-      } else {
-        setState((prev) => ({ ...prev, isStale: true }));
-      }
-    }
-  }, [updateErs]);
-
+export function useOpenF1(enabled = true, sessionKeyOverride: number | null = null, race?: Race | null, revision = 0) {
+  const [state, setState] = useState<F1State>(EMPTY_STATE);
   useEffect(() => {
     if (!enabled) return;
-    // Reset accumulators whenever the target session changes
-    allLapsRef.current = [];
-    allPitsRef.current = [];
-    allRaceControlRef.current = [];
-    allStintsRef.current = [];
-    failCountRef.current = 0;
-    usingMockRef.current = false;
-    setState({ ...INITIAL_STATE });
-
-    async function initSession() {
+    const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let failures = 0; let current: F1State = { ...EMPTY_STATE, source: 'openf1' }; let discoveryAt = 0;
+    setState(current);
+    async function poll() {
+      if (document.hidden) { timer = setTimeout(poll, 15000); return; }
       try {
-        const query = sessionKeyOverride != null
-          ? `/sessions?session_key=${sessionKeyOverride}`
-          : '/sessions?session_key=latest';
-        const sessions = await apiFetch<Session>(query);
-        if (sessions.length) {
-          const s = sessions[0];
-          const isLive = sessionKeyOverride == null && (s.status === 'started' || !s.date_end);
-          sessionKeyRef.current = sessionKeyOverride ?? (isLive ? 'latest' : s.session_key);
-          setState((prev) => ({ ...prev, session: s, isLive }));
-        } else {
-          throw new Error('no session');
+        if (!current.session || (!sessionKeyOverride && Date.now() - discoveryAt > 60000)) {
+          const sessions = await openF1<Session>(sessionKeyOverride ? `/sessions?session_key=${sessionKeyOverride}` : `/sessions?year=${new Date().getFullYear()}`, controller.signal);
+          const eligible = sessionKeyOverride ? sessions : sessions.filter(s => !race || (Date.parse(s.date_start) >= Date.parse(race.date) - 4 * 86400000 && Date.parse(s.date_start) <= Date.parse(race.date) + 86400000));
+          const ordered = [...eligible].sort((a,b) => Date.parse(a.date_start) - Date.parse(b.date_start));
+          const now = Date.now();
+          const session = ordered.find(s => Date.parse(s.date_start) <= now && Date.parse(s.date_end) >= now) ?? ordered.find(s => Date.parse(s.date_start) > now) ?? ordered.at(-1);
+          if (!session) throw new Error('No session published for this race weekend yet.');
+          if (session.session_key !== current.session?.session_key) current = { ...EMPTY_STATE, session, source: 'openf1' };
+          discoveryAt = now;
         }
-      } catch {
-        // Session API unavailable — pre-saturate fail counter so mock loads on first failed poll
-        failCountRef.current = API_FAIL_THRESHOLD - 1;
+        const session = current.session!;
+        const q = `session_key=${session.session_key}`;
+        const phase = sessionPhase(session.date_start, session.date_end, Date.now());
+        if (phase === 'Upcoming') { current = { ...current, statusText: 'Pre-race', isLive: false, lastUpdated: new Date(), error: undefined, isStale: false }; }
+        else {
+          // Sequential, bounded requests; never download full car/location histories.
+          const drivers = current.drivers.length ? current.drivers : await openF1<Driver>(`/drivers?${q}`, controller.signal);
+          const positions = await openF1<Position>(`/position?${q}`, controller.signal);
+          const laps = await openF1<Lap>(`/laps?${q}`, controller.signal);
+          const optional = await Promise.allSettled([
+            openF1<Interval>(`/intervals?${q}`, controller.signal), openF1<Pit>(`/pit?${q}`, controller.signal),
+            openF1<RaceControl>(`/race_control?${q}`, controller.signal), openF1<Weather>(`/weather?${q}`, controller.signal),
+            openF1<OpenF1Stint>(`/stints?${q}`, controller.signal), openF1<TeamRadioMsg>(`/team_radio?${q}`, controller.signal),
+          ]);
+          if (controller.signal.aborted) return;
+          const [intervals, pits, rc, weather, stints, radio] = optional;
+          const newest = Math.max(0, ...positions.map(p => Date.parse(p.date)));
+          const fresh = phase === 'Session window' && Date.now() - newest < 90000;
+          current = { ...current, drivers, positions: latest(positions), laps, intervals: intervals.status === 'fulfilled' ? latest(intervals.value) : current.intervals, pits: pits.status === 'fulfilled' ? pits.value : current.pits, raceControl: rc.status === 'fulfilled' ? rc.value : current.raceControl, weather: weather.status === 'fulfilled' ? weather.value.at(-1) ?? null : current.weather, stints: stints.status === 'fulfilled' ? deriveStints(laps, [], stints.value) : current.stints, teamRadio: radio.status === 'fulfilled' ? radio.value : current.teamRadio, currentLap: Math.max(0, ...laps.map(l => l.lap_number)), lastUpdated: new Date(), isLive: fresh, isStale: optional.some(r => r.status === 'rejected'), statusText: fresh ? 'Live timing' : phase === 'Archived' ? 'Archived session' : 'Awaiting live timing', error: optional.some(r => r.status === 'rejected') ? 'Some feeds are unavailable; last known values retained.' : undefined };
+        }
+        failures = 0;
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        failures++;
+        current = { ...current, isLive: false, isStale: true, statusText: 'Timing unavailable', error: error instanceof Error ? error.message : 'Timing unavailable' };
       }
-      fetchAll();
+      if (controller.signal.aborted) return;
+      setState({ ...current });
+      timer = setTimeout(poll, failures ? Math.min(300000, 30000 * 2 ** (failures - 1)) : current.isLive ? 15000 : 60000);
     }
-    initSession();
-  }, [fetchAll, enabled, sessionKeyOverride]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    const id = setInterval(fetchAll, POLL_MS);
-    return () => clearInterval(id);
-  }, [fetchAll, enabled]);
-
+    poll();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [enabled, sessionKeyOverride, race?.date, revision]);
   return state;
 }
+function latest<T extends { driver_number: number; date: string }>(rows: T[]) { return [...new Map([...rows].sort((a,b) => Date.parse(a.date) - Date.parse(b.date)).map(r => [r.driver_number, r])).values()]; }

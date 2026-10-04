@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { F1State, CarData, Lap } from '../types/f1';
 import { generateLapTelemetry, LAP_LENGTH_M, type TelemetrySample } from '../utils/syntheticTelemetry';
 
-import { OPENF1_BASE as BASE } from '../utils/api';
+import { openF1 } from '../utils/data';
 
 const SIM_SESSION_KEY = 9500;
 
@@ -58,7 +58,7 @@ export function useLapTelemetry(
     }
 
     // ── Live / historical: fetch real car_data for the lap window ─────────
-    if (!sessionKey || !lap?.date_start) {
+    if (!sessionKey || sessionKey < 0 || !lap?.date_start) {
       setResult({ ...EMPTY, error: 'No timing data for this lap yet.' });
       return;
     }
@@ -70,11 +70,11 @@ export function useLapTelemetry(
     const durationS = lap.lap_duration ?? 120;
     const end = new Date(start.getTime() + durationS * 1000);
     const url =
-      `${BASE}/car_data?session_key=${sessionKey}&driver_number=${driverNumber}` +
+      `/car_data?session_key=${sessionKey}&driver_number=${driverNumber}` +
       `&date>=${start.toISOString()}&date<=${end.toISOString()}`;
 
-    fetch(url)
-      .then((res) => { if (!res.ok) throw new Error(`OpenF1 → ${res.status}`); return res.json(); })
+    const controller = new AbortController();
+    openF1<CarData>(url, controller.signal)
       .then((rows: CarData[]) => {
         if (cancelled) return;
         if (!rows.length) { setResult({ ...EMPTY, error: 'No telemetry returned for this lap.' }); return; }
@@ -98,7 +98,7 @@ export function useLapTelemetry(
         if (!cancelled) setResult({ ...EMPTY, error: e instanceof Error ? e.message : 'Fetch failed' });
       });
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverNumber, lapNumber, sessionKey, isSim, lap?.date_start, lap?.lap_duration]);
 

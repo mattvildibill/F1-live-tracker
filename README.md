@@ -1,110 +1,33 @@
 # F1 Live Tracker
 
-A real-time Formula 1 data cockpit built with React and TypeScript. Connects to the free [OpenF1 API](https://openf1.org) and [Jolpica-F1](https://github.com/jolpica/jolpica-f1) (the Ergast successor) to display live timing, full car telemetry traces, sector analysis, tyre strategy, pit stop analysis, team radio audio, championship standings, and driver positions on an interactive track map — all in a dark F1 broadcast-style UI.
+Race-weekend dashboard and historical race replay, built with React 19, TypeScript and Vite. Production: https://f1.mattvildibill.com. Embedded in https://mattvildibill.com.
 
-When no live race is happening (or the API is rate-limited), a full race **simulator** lets you replay the 2026 Australian Grand Prix lap by lap with smooth, sub-lap car positioning updated at 20fps.
+## Modes
 
----
+- **Live / Weekend** (default): selects the current/upcoming Grand Prix from the current-year Jolpica calendar, retaining the event through race day for delayed starts. Shows scheduled local start time, weekend sessions, qualifying classification, published championship standings and regional Open-Meteo conditions. Qualifying is explicitly distinguished from the final penalty-adjusted grid.
+- **Simulator / Replay**: select a season (1996 onward) and completed race. Loads all pages of recorded Jolpica lap timing, then supports play, pause, reset, speed and lap scrubbing. Starts with the selected race's actual grid. Position history and driver comparisons use recorded lap-end positions/times. Final classification uses published results (including penalties/retirements). Data availability varies by race.
+- **Offline demo**: explicitly synthetic Australian GP scenario, separate from Live. Runs locally without OpenF1 requests; other independent panels may fetch calendar/standings. It is not an exact historical reconstruction.
 
-## Features
+## Data availability and accuracy
 
-### 7 Data Panels
+OpenF1 historical access is free, but authenticated access is required during live windows. At the October 2026 audit the provider returned HTTP 401 for global API access during a live session, including requests for past sessions. This static deployment does not hold an OpenF1 credential. Live timing is **not guaranteed**; the app exposes the provider restriction and links to official timing while retaining independent weekend data. It never substitutes a demo into Live.
 
-| Tab | What it shows |
-|-----|--------------|
-| 🏁 **Race Tower** | Live leaderboard with gap to leader, last lap time, tyre compound + age, ERS charge bar, pit stop count, and position delta vs. qualifying grid (▲/▼) |
-| 🗺 **Track Map** | Accurate Albert Park circuit SVG with DRS zones, sector markers, kerb markers, pit lane, and animated car dots with team colors positioned in real time |
-| ⚡ **ERS / Battery** | Per-driver battery charge, mode (Harvest/Boost/Depleting/Balanced), estimated MJ, and Overtake Zone pairs within 1 second |
-| 🔴 **Tyre Strategy** | Horizontal stint chart for all drivers showing compound, stint length, and current lap marker |
-| ⚔️ **Head to Head** | Pick any two drivers — compare position, gap, last lap, pit stops, current compound, and a Chart.js lap time graph |
-| 📈 **Gap Chart** | Chart.js rolling gap-to-leader chart for the top 6 over the last 15 laps |
-| 📻 **Race Control** | Chronological feed of flags, safety cars, DRS calls, penalties, and team radio messages |
+- All OpenF1 consumers share a paced queue (at least 2.1 seconds between requests), with timeouts, cancellation, backoff and tab-visibility pauses for polling. Core failures retain the last successful data and mark it stale. Optional feed failures are explicit. No overlapping polling cycles or full-session car/location downloads.
+- GPS outlines, when available, use one bounded recorded lap for an actual driver. Historical replay has a position-history visualization, not invented GPS. The Melbourne map only belongs to the explicit demo.
+- Unknown tyre compounds, missing sectors, gaps, pit durations and battery states remain unknown. Only the demo includes synthetic sectors/ERS/telemetry.
+- Pace comparison shows per-lap differences against the currently leading driver, **not measured gaps**.
+- Open-Meteo conditions are regional model estimates, not track sensor measurements; observation/model timestamps are shown. No weather-based race-control claims.
+- Jolpica updates after source publication; qualifying order may differ from the starting grid. Calendar countdowns do not imply a delayed race has begun.
 
-### Live Mode
-- Polls all OpenF1 endpoints every 3 seconds using `Promise.allSettled` (no single endpoint failure kills the update)
-- Uses the real `/stints` endpoint for **actual tyre compounds** (falls back to derivation from pit stops when unavailable)
-- **Session browser** — load any OpenF1 meeting/session back to 2023 (📅 in the mode bar) and replay it in the cockpit
-- Vite dev proxy rewrites `/openf1/...` → `https://api.openf1.org/...` to bypass CORS
-- Gracefully falls back to the most recent completed session when no race is live
-- "LIVE" / "Archived Session" badge in the mode bar
+## Development and verification
 
-### Simulator Mode
-- **Zero API calls** — default mode, no 429 rate-limit errors
-- Full 2026 Australian GP race data: 22 drivers, 57 laps, real finishing order, VSC periods, DNFs, DNS
-- Continuous time-based simulation at 50ms ticks — car positions update smoothly within each lap, not just lap-by-lap
-- Play / Pause / Speed (1×–20×) / Scrubber / Reset controls
-- Realistic per-driver tyre strategies (Russell S→M under VSC, Ferrari S→H after missing VSC, Verstappen reversed M→S from P20)
-
-### Track Map
-- Hand-crafted Albert Park 2022+ SVG path using cubic bezier curves
-  - T2–T3 chicane correctly placed immediately after T1
-  - Long Jones Corner straight, T4–T5 lake entry, T5–T8 fast lakeside sweepers
-  - T9–T10 flowing 2022 modification (replaced old slow hairpin)
-  - T11–T12 back chicane, T13–T14 final complex
-- DRS zone overlays, sector boundary dots, alternating red/white kerb markers, pit lane with box tick marks, chequered S/F line
-- Car dots: team color fill, position number, name label for top 5, glow filter for top 3, pulse ring for leader, PIT badge when pitting
-- Retired drivers (DNF) disappear from the track after their retirement lap
-- Side leaderboard panel with gap, tyre dot, last lap time, and ERS bar
-
----
-
-## Tech Stack
-
-- **React 19 + TypeScript** via Vite 8
-- **Tailwind CSS v4** (`@tailwindcss/vite` plugin)
-- **Chart.js** via `react-chartjs-2` (Gap Chart, Head to Head)
-- **OpenF1 REST API** — free, no auth required
-- SVG path animations via `SVGPathElement.getPointAtLength()`
-
----
-
-## Getting Started
-
-```bash
-npm install
+```sh
+npm ci
 npm run dev
+npm run build
+node --test tests/*.test.mjs
 ```
 
-Open [localhost:5173](http://localhost:5173).
+Requires Node 24 for the native TypeScript test imports. Production deploys automatically from GitHub `main` through Vercel. `vercel.json` retains the portfolio frame-ancestor policy. The tracker loads its heavyweight analysis panels on demand.
 
-The app starts in **Simulator** mode by default. Click **🔴 Live** in the mode bar to switch to live OpenF1 data. Your choice is saved in `localStorage`.
-
-### Available Scripts
-
-```bash
-npm run dev      # Start dev server (localhost:5173)
-npm run build    # Production build → dist/
-npm run preview  # Preview production build
-npm run lint     # ESLint
-```
-
----
-
-## Data Source
-
-All live data comes from the [OpenF1 API](https://openf1.org) — a free, community-maintained API that provides real-time F1 timing, telemetry, and session data.
-
-Endpoints used: `/position`, `/intervals`, `/laps`, `/car_data`, `/pit`, `/race_control`, `/weather`, `/location`, `/drivers`, `/team_radio`, `/stints`, `/meetings`, `/sessions`
-
-Championship standings, the season calendar, and race results come from **[Jolpica-F1](https://api.jolpi.ca)** — the community-maintained successor to the Ergast API (CORS-enabled, no auth). Refreshed every 5 minutes.
-
-The Vite dev server proxies these requests through `/openf1/...` to avoid CORS issues in development.
-
----
-
-## Simulator Data: 2026 Australian GP
-
-The built-in simulator replicates Round 1 of the 2026 FIA Formula One World Championship.
-
-**Result:** Russell wins (Mercedes 1–2 with Antonelli), Leclerc P3, Hamilton P4, Norris P5, Verstappen P6 (started P20 after Q1 crash, set fastest lap)
-
-**Key events simulated:**
-- VSC 1 (laps 11–14): Hadjar engine failure at T1 → Mercedes double-stacks under VSC (lap 12)
-- Ferrari missed VSC 1 window → pitted under VSC 2 onto harder tyres
-- VSC 2 (laps 16–18): Bottas fuel system failure at T12
-- DNF: Alonso (power unit, lap 15)
-- DNS: Piastri (locked rear axle on formation lap), Hülkenberg (technical)
-- Debris yellow flag sector 2 (lap 27)
-- Stroll 5-second time penalty for unsafe pit release (lap 46)
-
-Lap times are generated deterministically (no `Math.random`) with tyre degradation (+0.025s/lap), VSC pace penalties, traffic penalties for Verstappen's opening stint, and realistic pit stop time loss.
+Regression tests cover weekend/date selection, delayed starts, session status, replay identity and grid, seeking without future-lap leakage, final classification, string lap deficits, and race-control flags. Browser verification should cover Live unavailable state, latest replay, a different season/race, playback/seek/reset, narrow layouts, and the production portfolio iframe.

@@ -92,7 +92,7 @@ export default function RaceTower({ state }: Props) {
             const pitCount = pitCountMap.get(pos.driver_number) ?? 0;
 
             // Position delta vs. starting grid
-            const gridPos = STARTING_GRID[pos.driver_number];
+            const gridPos = (state.startingGrid ?? (state.source === 'demo' ? STARTING_GRID : {}))[pos.driver_number];
             const delta = gridPos != null && gridPos > 0 ? gridPos - pos.position : null;
 
             // Current tyre

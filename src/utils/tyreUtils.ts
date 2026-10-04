@@ -26,19 +26,21 @@ export function getTyreLabel(compound: string): string {
 
 export function formatLapTime(seconds: number | null | undefined): string {
   if (seconds == null || seconds <= 0) return '--:--.---';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  const s = Math.floor(secs);
-  const ms = Math.round((secs - s) * 1000);
-  return `${mins}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+  const totalMs = Math.round(seconds * 1000);
+  const mins = Math.floor(totalMs / 60000);
+  const secs = Math.floor(totalMs / 1000) % 60;
+  const ms = totalMs % 1000;
+  return `${mins}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
 /**
  * Callers render P1's "Leader" label themselves, so a zero here means a car
  * that is level with the driver ahead — not the race leader.
  */
-export function formatGap(gap: number | null | undefined): string {
+export function formatGap(gap: number | string | null | undefined): string {
   if (gap == null) return '--';
+  if (typeof gap === 'string') return Number.isFinite(Number(gap)) ? `+${Number(gap).toFixed(3)}` : gap;
+  if (!Number.isFinite(gap)) return '--';
   return `+${gap.toFixed(3)}`;
 }
 

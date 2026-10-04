@@ -7,16 +7,8 @@ interface Props {
   state: F1State;
 }
 
-/** Deterministic fallback duration for pit records without one (sim / sparse data). */
-function pitDuration(p: Pit): number {
-  if (p.pit_duration != null && p.pit_duration > 0) {
-    // OpenF1 pit_duration is time in the pit lane in seconds; some sessions report
-    // stationary time (~2–4s), others full lane time (~18–25s). Show as reported.
-    return p.pit_duration;
-  }
-  const h = Math.sin(p.driver_number * 9.31 + p.lap_number * 4.17) * 43758.5453;
-  return 2.1 + (h - Math.floor(h)) * 1.6; // 2.1–3.7s synthetic stationary time
-}
+function pitDuration(p: Pit): number { return p.pit_duration != null && p.pit_duration > 0 ? p.pit_duration : NaN; }
+function fmt(n: number) { return Number.isFinite(n) ? `${n.toFixed(2)}s` : '—'; }
 
 export default function PitLane({ state }: Props) {
   const { drivers, pits, stints, positions, currentLap, totalLaps } = state;
@@ -31,7 +23,7 @@ export default function PitLane({ state }: Props) {
   );
 
   const fastest = useMemo(
-    () => (stops.length ? stops.reduce((m, s) => (s.duration < m.duration ? s : m)) : null),
+    () => { const timed = stops.filter(s => Number.isFinite(s.duration)); return timed.length ? timed.reduce((m,s) => s.duration < m.duration ? s : m) : null; },
     [stops]
   );
 
@@ -58,6 +50,7 @@ export default function PitLane({ state }: Props) {
 
   return (
     <div className="p-4 space-y-5">
+      <p className="fine-print">Durations as reported by the source; pit-lane transit time is not the stationary tyre-change time.</p>
       {/* Summary strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
@@ -68,7 +61,7 @@ export default function PitLane({ state }: Props) {
           <p className="text-xs uppercase tracking-wider text-gray-500">Fastest stop</p>
           {fastest ? (
             <p className="text-2xl font-bold text-green-400 mt-1">
-              {fastest.duration.toFixed(2)}s
+              {fmt(fastest.duration)}
               <span className="text-xs font-semibold text-gray-500 ml-2">
                 {driverMap.get(fastest.driver_number)?.name_acronym} · L{fastest.lap_number}
               </span>
@@ -78,7 +71,7 @@ export default function PitLane({ state }: Props) {
         <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
           <p className="text-xs uppercase tracking-wider text-gray-500">Avg stop</p>
           <p className="text-2xl font-bold text-gray-100 mt-1">
-            {stops.length ? (stops.reduce((s, p) => s + p.duration, 0) / stops.length).toFixed(2) + 's' : '–'}
+            {fmt(stops.filter(s => Number.isFinite(s.duration)).reduce((sum,p) => sum+p.duration,0) / stops.filter(s => Number.isFinite(s.duration)).length)}
           </p>
         </div>
         <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
@@ -89,7 +82,7 @@ export default function PitLane({ state }: Props) {
 
       {hasSynthetic && (
         <p className="text-xs text-gray-600 italic">
-          Some durations estimated — source data doesn't report stationary time for every stop.
+          Some stop durations are unavailable and shown as —. No times are estimated.
         </p>
       )}
 
@@ -143,10 +136,10 @@ export default function PitLane({ state }: Props) {
                       ) : <span className="text-gray-600 text-sm">–</span>}
                     </td>
                     <td className={`px-3 py-2 font-mono text-sm text-right ${isFastest ? 'text-green-400 font-bold' : 'text-gray-200'}`}>
-                      {s.duration.toFixed(2)}s
+                      {fmt(s.duration)}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs text-right text-gray-600">
-                      {fastest && !isFastest ? `+${(s.duration - fastest.duration).toFixed(2)}` : isFastest ? '★' : '--'}
+                      {fastest && !isFastest && Number.isFinite(s.duration) ? `+${(s.duration - fastest.duration).toFixed(2)}` : isFastest ? '★' : '--'}
                     </td>
                   </tr>
                 );

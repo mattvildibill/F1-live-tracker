@@ -44,7 +44,7 @@ export default function Header({ state }: Props) {
           ? `${session.session_type} · ${session.session_name}`
           : session.session_name
       }${session.year ? ` · ${session.year}` : ''}`
-    : 'Loading…';
+    : 'Formula 1 race center';
 
   return (
     <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
@@ -59,7 +59,7 @@ export default function Header({ state }: Props) {
         <div className="flex items-center gap-1.5">
           <span className={`w-2.5 h-2.5 rounded-full live-dot ${isLive ? 'bg-red-500' : 'bg-gray-500'}`} />
           <span className={`text-xs font-bold uppercase tracking-widest ${isLive ? 'text-red-400' : 'text-gray-400'}`}>
-            {isLive ? 'Live' : 'Replay'}
+            {state.statusText ?? (isLive ? 'Live' : 'Session')}
           </span>
         </div>
 
@@ -83,7 +83,7 @@ export default function Header({ state }: Props) {
         {/* Cars running */}
         {running > 0 && started > 0 && (
           <span className="text-gray-500 text-xs">
-            🏎 <span className={retired.size ? 'text-orange-300 font-semibold' : 'text-gray-300'}>{running}</span>/{started} running
+            🏎 <span className={retired.size ? 'text-orange-300 font-semibold' : 'text-gray-300'}>{running}</span>/{started} classified
           </span>
         )}
 

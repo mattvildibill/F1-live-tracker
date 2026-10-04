@@ -37,7 +37,7 @@ function sectorsOf(lap: Lap): [number, number, number] | null {
   if (lap.duration_sector_1 != null && lap.duration_sector_2 != null && lap.duration_sector_3 != null) {
     return [lap.duration_sector_1, lap.duration_sector_2, lap.duration_sector_3];
   }
-  return synthesizeSectors(lap);
+  return lap.session_key === 9500 ? synthesizeSectors(lap) : null;
 }
 
 function fmtSector(s: number | null): string {
@@ -52,7 +52,7 @@ export default function SectorAnalysis({ state }: Props) {
   const posMap = useMemo(() => new Map(positions.map((p) => [p.driver_number, p.position])), [positions]);
 
   const anySynthetic = useMemo(
-    () => laps.some((l) => l.lap_duration != null && l.duration_sector_1 == null),
+    () => state.source === 'demo' && laps.some((l) => l.lap_duration != null && l.duration_sector_1 == null),
     [laps]
   );
 

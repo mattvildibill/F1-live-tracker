@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { OPENF1_BASE } from '../utils/api';
+import { openF1 } from '../utils/data';
 
 export const VIEW_W = 490;   // matches Albert Park GPS path width
 export const VIEW_H = 560;
@@ -180,31 +180,21 @@ const FALLBACK: TrackLayout = {
   isFromAPI: false,
 };
 
-export function useTrackLayout(sessionKey?: number | string): TrackLayout {
-  const [layout, setLayout] = useState<TrackLayout>(FALLBACK);
-
+export function useTrackLayout(sessionKey?: number | string, driverNumber?: number, lapStart?: string, lapDuration?: number | null): TrackLayout {
+  const empty = { ...FALLBACK, svgPath: '' };
+  const [layout, setLayout] = useState<TrackLayout>(empty);
   useEffect(() => {
-    if (!sessionKey) return;
-    let cancelled = false;
-
-    async function load() {
-      try {
-        // Try to fetch real GPS layout for the session leader
-        const res = await fetch(`${OPENF1_BASE}/location?session_key=${sessionKey}&driver_number=1`);
-        if (!res.ok || cancelled) return;
-        const raw: { x: number; y: number }[] = await res.json();
-        if (raw.length < 100 || cancelled) return;
-
-        const { path, toSvg } = pointsToPath(raw);
-        setLayout({ svgPath: path, viewBox: `0 0 800 ${VIEW_H}`, toSvg, isFromAPI: true });
-      } catch {
-        // keep Albert Park fallback silently
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [sessionKey]);
-
-  return layout;
+    if (sessionKey === 9500) { setLayout(FALLBACK); return; }
+    setLayout(empty);
+    if (!sessionKey || Number(sessionKey) < 0 || !driverNumber || !lapStart || !lapDuration) return;
+    const c = new AbortController();
+    const end = new Date(Date.parse(lapStart) + lapDuration * 1000).toISOString();
+    openF1<{x:number;y:number}>(`/location?session_key=${sessionKey}&driver_number=${driverNumber}&date>=${lapStart}&date<=${end}`, c.signal).then(raw => {
+      if (c.signal.aborted || raw.length < 100) return;
+      const {path,toSvg} = pointsToPath(raw);
+      setLayout({svgPath:path,viewBox:`0 0 800 ${VIEW_H}`,toSvg,isFromAPI:true});
+    }).catch(() => {});
+    return () => c.abort();
+  }, [sessionKey,driverNumber,lapStart,lapDuration]);
+  return sessionKey === 9500 ? FALLBACK : layout;
 }
