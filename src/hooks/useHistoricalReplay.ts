@@ -49,6 +49,7 @@ export function useHistoricalReplay(enabled: boolean) {
     return () => clearInterval(timer);
   }, [enabled, playing, speed, totalLaps, data]);
   useEffect(() => { if (totalLaps && progress >= totalLaps) setPlaying(false); }, [progress, totalLaps]);
-  const state = useMemo(() => data ? replayState(data, progress) : null, [data, Math.floor(progress)]);
+  const currentLap = Math.floor(progress);
+  const state = useMemo(() => data ? replayState(data, currentLap) : null, [data, currentLap]);
   return { year, setYear, races, round, setRound, state, loading, error, progress, setProgress, speed, setSpeed, playing, totalLaps, toggle: () => { if (progress >= totalLaps) setProgress(0); setPlaying(p => !p); }, reset: () => { setPlaying(false); setProgress(0); }, retry: () => setRevision(n => n + 1) };
 }

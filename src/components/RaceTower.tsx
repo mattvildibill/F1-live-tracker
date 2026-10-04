@@ -23,6 +23,7 @@ function ERSBar({ charge }: { charge: number }) {
 }
 
 export default function RaceTower({ state }: Props) {
+  const isReplay = state.source === 'replay';
   const { drivers, positions, intervals, laps, stints, ersStates, pits, currentLap } = state;
 
   const driverMap = useMemo(() => new Map(drivers.map((d) => [d.driver_number, d])), [drivers]);
@@ -73,11 +74,11 @@ export default function RaceTower({ state }: Props) {
             <th className="text-left py-2 px-2 w-12">Δ Grid</th>
             <th className="text-left py-2 px-3">Driver</th>
             <th className="text-left py-2 px-3 hidden sm:table-cell">Team</th>
-            <th className="text-right py-2 px-3">Gap</th>
-            <th className="text-right py-2 px-3 hidden sm:table-cell">Last Lap</th>
-            <th className="text-left py-2 px-3">Tyre</th>
+            {!isReplay && <th className="text-right py-2 px-3">Gap</th>}
+            <th className="text-right py-2 px-3">Last Lap</th>
+            {!isReplay && <th className="text-left py-2 px-3">Tyre</th>}
             <th className="text-center py-2 px-2 hidden sm:table-cell">Pits</th>
-            <th className="text-left py-2 px-3 hidden md:table-cell">ERS</th>
+            {!isReplay && <th className="text-left py-2 px-3 hidden md:table-cell">ERS</th>}
           </tr>
         </thead>
         <tbody>
@@ -88,7 +89,7 @@ export default function RaceTower({ state }: Props) {
             const lastLap = lastLapMap.get(pos.driver_number);
             const ers = ersStates[pos.driver_number];
             const teamColor = getTeamColor(driver.team_name, driver.team_colour);
-            const isPitting = inPitSet.has(pos.driver_number);
+            const isPitting = state.source === 'demo' && inPitSet.has(pos.driver_number);
             const pitCount = pitCountMap.get(pos.driver_number) ?? 0;
 
             // Position delta vs. starting grid
@@ -144,24 +145,24 @@ export default function RaceTower({ state }: Props) {
                 </td>
 
                 {/* Gap */}
-                <td className="py-2.5 px-3 text-right font-mono">
+                {!isReplay && <td className="py-2.5 px-3 text-right font-mono">
                   {pos.position === 1 ? (
                     <span className="text-yellow-400 font-bold">Leader</span>
                   ) : (
                     <span className="text-gray-300">{formatGap(interval?.gap_to_leader)}</span>
                   )}
-                </td>
+                </td>}
 
                 {/* Last Lap — purple for session best, green for personal best */}
                 <td
-                  className="py-2.5 px-3 text-right font-mono hidden sm:table-cell"
+                  className="py-2.5 px-3 text-right font-mono"
                   style={{ color: lapTimeColor(pos.driver_number, lastLap, bestLaps) }}
                 >
                   {formatLapTime(lastLap)}
                 </td>
 
                 {/* Tyre */}
-                <td className="py-2.5 px-3">
+                {!isReplay && <td className="py-2.5 px-3">
                   <div className="flex items-center gap-1.5">
                     <span
                       className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-black"
@@ -169,9 +170,9 @@ export default function RaceTower({ state }: Props) {
                     >
                       {getTyreLabel(compound)}
                     </span>
-                    <span className="text-xs text-gray-500">{tyreAge}L</span>
+                    <span className="text-xs text-gray-500">{currentStint ? `${tyreAge}L` : '—'}</span>
                   </div>
-                </td>
+                </td>}
 
                 {/* Pit count */}
                 <td className="py-2.5 px-2 text-center font-mono text-xs text-gray-400 hidden sm:table-cell">
@@ -179,9 +180,9 @@ export default function RaceTower({ state }: Props) {
                 </td>
 
                 {/* ERS */}
-                <td className="py-2.5 px-3 hidden md:table-cell">
+                {!isReplay && <td className="py-2.5 px-3 hidden md:table-cell">
                   {ers ? <ERSBar charge={ers.charge} /> : <span className="text-gray-600 text-xs">—</span>}
-                </td>
+                </td>}
               </tr>
             );
           })}

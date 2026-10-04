@@ -65,7 +65,7 @@ export default function Header({ state }: Props) {
 
         {isStale && (
           <span className="px-2 py-0.5 rounded text-xs bg-orange-900 text-orange-300 border border-orange-700">
-            Stale data
+            {state.lastUpdated ? 'Stale timing' : 'Timing unavailable'}
           </span>
         )}
 

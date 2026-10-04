@@ -22,5 +22,11 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/openf1/:path*",
+      "destination": "https://api.openf1.org/:path*"
+    }
   ]
 }

@@ -17,7 +17,7 @@ export function openF1<T>(path: string, signal?: AbortSignal): Promise<T[]> {
     if (wait) await new Promise(resolve => setTimeout(resolve, wait));
     signal?.throwIfAborted();
     nextAt = Date.now() + 2100;
-    const rows = await json<T[]>(`https://api.openf1.org/v1${path}`, signal);
+    const rows = await json<T[]>(`/openf1/v1${path}`, signal);
     if (!Array.isArray(rows)) throw new Error('Unexpected data response. Retrying automatically.');
     return rows;
   });
