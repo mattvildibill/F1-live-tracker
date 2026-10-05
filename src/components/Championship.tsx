@@ -7,12 +7,16 @@ function raceDate(r: ScheduledRace): Date {
   return new Date(`${r.date}T${r.time ?? '12:00:00Z'}`);
 }
 
-function useCountdown(target: Date | null): string {
+function useNow(): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+  return now;
+}
+
+function formatCountdown(target: Date | null, now: number): string {
   if (!target) return '';
   const ms = target.getTime() - now;
   if (ms <= 0) return 'Underway';
@@ -27,12 +31,12 @@ export default function Championship() {
   const champ = useJolpica(true);
   const { driverStandings, constructorStandings, schedule, lastRace, season, loading, error } = champ;
 
-  const now = Date.now();
+  const now = useNow();
   const nextRace = useMemo(
     () => schedule.find((r) => raceDate(r).getTime() > now) ?? null,
     [schedule, now]
   );
-  const countdown = useCountdown(nextRace ? raceDate(nextRace) : null);
+  const countdown = formatCountdown(nextRace ? raceDate(nextRace) : null, now);
 
   const maxDriverPts = driverStandings.length ? parseFloat(driverStandings[0].points) || 1 : 1;
   const maxTeamPts = constructorStandings.length ? parseFloat(constructorStandings[0].points) || 1 : 1;

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement,
   Title, Tooltip, Legend, Filler,
@@ -8,6 +8,7 @@ import type { F1State } from '../types/f1';
 import { getTeamColor } from '../utils/teamColors';
 import { formatLapTime } from '../utils/tyreUtils';
 import { useLapTelemetry } from '../hooks/useLapTelemetry';
+import { availableLap } from '../utils/telemetrySelection';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -51,14 +52,13 @@ export default function Telemetry({ state }: Props) {
       });
   }, [drivers, laps, positions]);
 
-  const [driverA, setDriverA] = useState<number | null>(null);
+  const [selectedDriverA, setDriverA] = useState<number | null>(null);
+  const driverA = selectedDriverA ?? activeDrivers[0]?.driver_number ?? null;
   const [driverB, setDriverB] = useState<number | null>(null); // null = no compare
-  const [lapNumber, setLapNumber] = useState<number | null>(null);
+  const [selectedLap, setLapNumber] = useState<number | null>(null);
 
-  // Default to leader + their latest complete lap
-  useEffect(() => {
-    if (driverA == null && activeDrivers.length) setDriverA(activeDrivers[0].driver_number);
-  }, [activeDrivers, driverA]);
+  // Remember the first available leader without an effect-driven extra commit.
+  if (selectedDriverA !== driverA) setDriverA(driverA);
 
   const lapsForA = useMemo(() =>
     laps
@@ -68,11 +68,9 @@ export default function Telemetry({ state }: Props) {
     [laps, driverA]
   );
 
-  useEffect(() => {
-    if (lapsForA.length && (lapNumber == null || !lapsForA.includes(lapNumber))) {
-      setLapNumber(lapsForA.at(-1)!);
-    }
-  }, [lapsForA, lapNumber]);
+  const lapNumber = availableLap(lapsForA, selectedLap);
+  // Keep a valid selected lap as new timing arrives; fall back when seeking back.
+  if (selectedLap !== lapNumber) setLapNumber(lapNumber);
 
   const telA = useLapTelemetry(state, driverA, lapNumber);
   const telB = useLapTelemetry(state, driverB, lapNumber);

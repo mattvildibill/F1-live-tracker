@@ -4,6 +4,7 @@ import { EMPTY_STATE, openF1, sessionPhase, type Race } from '../utils/data';
 import { deriveStints } from '../utils/stintUtils';
 export function useOpenF1(enabled = true, sessionKeyOverride: number | null = null, race?: Race | null, revision = 0) {
   const [state, setState] = useState<F1State>(EMPTY_STATE);
+  const raceDate = race?.date;
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let failures = 0; let current: F1State = { ...EMPTY_STATE, source: 'openf1' }; let discoveryAt = 0;
@@ -13,7 +14,7 @@ export function useOpenF1(enabled = true, sessionKeyOverride: number | null = nu
       try {
         if (!current.session || (!sessionKeyOverride && Date.now() - discoveryAt > 60000)) {
           const sessions = await openF1<Session>(sessionKeyOverride ? `/sessions?session_key=${sessionKeyOverride}` : `/sessions?year=${new Date().getFullYear()}`, controller.signal);
-          const eligible = sessionKeyOverride ? sessions : sessions.filter(s => !race || (Date.parse(s.date_start) >= Date.parse(race.date) - 4 * 86400000 && Date.parse(s.date_start) <= Date.parse(race.date) + 86400000));
+          const eligible = sessionKeyOverride ? sessions : sessions.filter(s => !raceDate || (Date.parse(s.date_start) >= Date.parse(raceDate) - 4 * 86400000 && Date.parse(s.date_start) <= Date.parse(raceDate) + 86400000));
           const ordered = [...eligible].sort((a,b) => Date.parse(a.date_start) - Date.parse(b.date_start));
           const now = Date.now();
           const session = ordered.find(s => Date.parse(s.date_start) <= now && Date.parse(s.date_end) >= now) ?? ordered.find(s => Date.parse(s.date_start) > now) ?? ordered.at(-1);
@@ -53,7 +54,7 @@ export function useOpenF1(enabled = true, sessionKeyOverride: number | null = nu
     }
     poll();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [enabled, sessionKeyOverride, race?.date, revision]);
+  }, [enabled, sessionKeyOverride, raceDate, revision]);
   return state;
 }
 function latest<T extends { driver_number: number; date: string }>(rows: T[]) { return [...new Map([...rows].sort((a,b) => Date.parse(a.date) - Date.parse(b.date)).map(r => [r.driver_number, r])).values()]; }

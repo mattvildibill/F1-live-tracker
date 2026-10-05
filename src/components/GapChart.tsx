@@ -24,13 +24,13 @@ interface Props {
 
 export default function GapChart({ state }: Props) {
   const { drivers, laps, positions } = state;
-  const driverMap = new Map(drivers.map((d) => [d.driver_number, d]));
+  const driverMap = useMemo(() => new Map(drivers.map((d) => [d.driver_number, d])), [drivers]);
 
   // Top 6 by current position
-  const top6 = [...positions]
+  const top6 = useMemo(() => [...positions]
     .sort((a, b) => a.position - b.position)
     .slice(0, 6)
-    .map((p) => p.driver_number);
+    .map((p) => p.driver_number), [positions]);
 
   // Build gap-to-leader per lap for top 6
   // We approximate gap from lap times — leader sets the reference, others diff

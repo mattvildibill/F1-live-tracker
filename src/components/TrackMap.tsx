@@ -1,7 +1,8 @@
 import PositionHistory from './PositionHistory';
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { F1State } from '../types/f1';
 import { getTeamColor } from '../utils/teamColors';
+import { createTrackGeometry } from '../utils/trackGeometry';
 import { formatLapTime, formatGap, getTyreColor, getTyreLabel } from '../utils/tyreUtils';
 import {
   useTrackLayout,
@@ -25,12 +26,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
   const referenceLap = state.laps.find(l => l.date_start && l.lap_duration && !l.is_pit_out_lap && l.lap_number > 1);
   const layout = useTrackLayout(sessionKey, referenceLap?.driver_number, referenceLap?.date_start, referenceLap?.lap_duration);
 
-  const pathRef  = useRef<SVGPathElement>(null);
-  const [totalLength, setTotalLength] = useState(0);
-
-  useEffect(() => {
-    if (pathRef.current) setTotalLength(pathRef.current.getTotalLength());
-  }, [layout.svgPath]); // recalculate if path changes (API data arrives)
+  const geometry = useMemo(() => createTrackGeometry(layout.svgPath), [layout.svgPath]);
 
   const driverMap   = useMemo(() => new Map(drivers.map((d) => [d.driver_number, d])), [drivers]);
   const intervalMap = useMemo(() => new Map(intervals.map((i) => [i.driver_number, i])), [intervals]);
@@ -64,7 +60,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
 
   // ── Compute per-car SVG positions ─────────────────────────────────────────
   const carPoints = useMemo(() => {
-    if (!totalLength || !pathRef.current) return [];
+    if (!geometry) return [];
 
     return sorted.map((pos) => {
       let fraction: number;
@@ -89,37 +85,38 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
         fraction = ((1 - Math.min(gap / AVG_LAP_S, 0.98)) + 1) % 1;
       }
 
-      const pt     = pathRef.current!.getPointAtLength(fraction * totalLength);
+      if (!Number.isFinite(fraction)) return null;
+      const pt     = geometry.pointAtLength(fraction * geometry.totalLength);
       const driver = driverMap.get(pos.driver_number);
       if (!driver) return null;
       return { ...pos, x: pt.x, y: pt.y, driver };
     }).filter(Boolean) as Array<{ driver_number: number; position: number; x: number; y: number; driver: typeof drivers[0] }>;
-  }, [totalLength, sorted, intervalMap, driverTrackPositions, layout, state.locations, driverMap]);
+  }, [geometry, sorted, intervalMap, driverTrackPositions, layout, state.locations, driverMap]);
 
-  // ── Static track decorations — all computed in one memo keyed on totalLength ──
+  // ── Static track decorations — recompute whenever the outline changes ─────
   const trackDecorations = useMemo(() => {
-    if (!totalLength || !pathRef.current) {
+    if (!geometry) {
       return { drsPolylines: [], sectorPts: [], turnPts: [], kerbPts: [] };
     }
-    const path = pathRef.current;
+    const { totalLength, pointAtLength } = geometry;
 
     const drsPolylines = DRS_ZONES.map(([s, e]) => {
       const pts: string[] = [];
       for (let i = 0; i <= 30; i++) {
         const t = s + (e - s) * (i / 30);
-        const p = path.getPointAtLength(t * totalLength);
+        const p = pointAtLength(t * totalLength);
         pts.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`);
       }
       return pts.join(' ');
     });
 
     const sectorPts = SECTOR_FRACS.map((sf) => {
-      const p = path.getPointAtLength(sf.frac * totalLength);
+      const p = pointAtLength(sf.frac * totalLength);
       return { label: sf.label, x: p.x, y: p.y };
     });
 
     const turnPts = TURN_LABELS.map(([frac, label]) => {
-      const p = path.getPointAtLength((frac as number) * totalLength);
+      const p = pointAtLength((frac as number) * totalLength);
       return { label, x: p.x, y: p.y };
     });
 
@@ -132,8 +129,8 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
       for (let k = 0; k <= 6; k++) {
         const t  = s + (e - s) * (k / 6);
         const t2 = s + (e - s) * (Math.min(k + 0.5, 6) / 6);
-        const p  = path.getPointAtLength(t * totalLength);
-        const p2 = path.getPointAtLength(t2 * totalLength);
+        const p  = pointAtLength(t * totalLength);
+        const p2 = pointAtLength(t2 * totalLength);
         const dx = p2.x - p.x, dy = p2.y - p.y;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
         kerbPts.push({ x: p.x, y: p.y, nx: -dy / len, ny: dx / len, i: k });
@@ -141,7 +138,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
     }
 
     return { drsPolylines, sectorPts, turnPts, kerbPts };
-  }, [totalLength]);
+  }, [geometry]);
 
   const { drsPolylines, sectorPts, turnPts, kerbPts } = trackDecorations;
 
@@ -174,9 +171,6 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
           <path d={layout.svgPath} fill="none" stroke="#1e293b" strokeWidth={20} strokeLinecap="round" strokeLinejoin="round" />
           {/* Centre line (subtle) */}
           <path d={layout.svgPath} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8 18" opacity={0.6} />
-
-          {/* Reference path (invisible, used for getPointAtLength) */}
-          <path ref={pathRef} d={layout.svgPath} fill="none" stroke="none" />
 
           {/* === Kerb markers at corners === */}
           {kerbPts.map((kp, ki) => {

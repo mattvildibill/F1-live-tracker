@@ -53,7 +53,7 @@ export default function SectorAnalysis({ state }: Props) {
 
   const anySynthetic = useMemo(
     () => state.source === 'demo' && laps.some((l) => l.lap_duration != null && l.duration_sector_1 == null),
-    [laps]
+    [laps, state.source]
   );
 
   const rows: DriverSectorRow[] = useMemo(() => {

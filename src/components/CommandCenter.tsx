@@ -1,8 +1,9 @@
 import PositionHistory from './PositionHistory';
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import type { F1State } from '../types/f1';
 import { useTrackLayout } from '../hooks/useTrackLayout';
 import { getTeamColor } from '../utils/teamColors';
+import { createTrackGeometry } from '../utils/trackGeometry';
 import { formatLapTime, formatGap, getTyreColor, getTyreLabel } from '../utils/tyreUtils';
 import { computeBestLaps, lapTimeColor } from '../utils/lapUtils';
 import { currentNeutralisation, NEUTRALISATION_LABEL, NEUTRALISATION_COLOR } from '../utils/raceStatus';
@@ -60,12 +61,8 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
   const referenceLap = state.laps.find(l => l.date_start && l.lap_duration && !l.is_pit_out_lap && l.lap_number > 1);
   const layout = useTrackLayout(sessionKey, referenceLap?.driver_number, referenceLap?.date_start, referenceLap?.lap_duration);
 
-  // ── Mini map path ref ─────────────────────────────────────────────────────
-  const pathRef = useRef<SVGPathElement>(null);
-  const [totalLength, setTotalLength] = useState(0);
-  useEffect(() => {
-    if (pathRef.current) setTotalLength(pathRef.current.getTotalLength());
-  }, [layout.svgPath]);
+  // ── Pure mini map geometry ───────────────────────────────────────────────
+  const geometry = useMemo(() => createTrackGeometry(layout.svgPath), [layout.svgPath]);
 
   // ── Derived maps ──────────────────────────────────────────────────────────
   const driverMap   = useMemo(() => new Map(drivers.map(d => [d.driver_number, d])), [drivers]);
@@ -130,7 +127,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
 
   // ── Mini map car points ───────────────────────────────────────────────────
   const miniCarPoints = useMemo(() => {
-    if (!totalLength || !pathRef.current) return [];
+    if (!geometry) return [];
     return sorted.map(pos => {
       let fraction: number;
       if (driverTrackPositions) {
@@ -149,12 +146,13 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
         const gap  = pos.position === 1 ? 0 : Math.abs(Number(intv?.gap_to_leader ?? 0));
         fraction = ((1 - Math.min(gap / 83.0, 0.98)) + 1) % 1;
       }
-      const pt = pathRef.current!.getPointAtLength(fraction * totalLength);
+      if (!Number.isFinite(fraction)) return null;
+      const pt = geometry.pointAtLength(fraction * geometry.totalLength);
       const driver = driverMap.get(pos.driver_number);
       if (!driver) return null;
       return { ...pos, x: pt.x, y: pt.y, driver };
     }).filter(Boolean) as Array<{ driver_number: number; position: number; x: number; y: number; driver: typeof drivers[0] }>;
-  }, [totalLength, sorted, intervalMap, driverTrackPositions, layout, locations, driverMap]);
+  }, [geometry, sorted, intervalMap, driverTrackPositions, layout, locations, driverMap]);
 
   const raceLaps = Math.max(totalLaps, currentLap, 1);
   const rcSorted = useMemo(() => [...raceControl].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [raceControl]);
@@ -317,8 +315,6 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
               {/* Track surface */}
               <path d={layout.svgPath} fill="none" stroke="#374151" strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" />
               <path d={layout.svgPath} fill="none" stroke="#1e293b" strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
-              {/* Invisible reference path for getPointAtLength */}
-              <path ref={pathRef} d={layout.svgPath} fill="none" stroke="none" />
               {/* S/F line */}
               <line x1={206} y1={391} x2={194} y2={404} stroke="#ffffff" strokeWidth={2} opacity={0.5} />
               {/* Car dots */}

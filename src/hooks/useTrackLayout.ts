@@ -13,6 +13,7 @@
 
 import { useState, useEffect } from 'react';
 import { openF1 } from '../utils/data';
+import { valueForRequest, type ScopedResult } from '../utils/scopedRequest';
 
 export const VIEW_W = 490;   // matches Albert Park GPS path width
 export const VIEW_H = 560;
@@ -180,21 +181,22 @@ const FALLBACK: TrackLayout = {
   isFromAPI: false,
 };
 
+const EMPTY_LAYOUT: TrackLayout = { ...FALLBACK, svgPath: '' };
+
 export function useTrackLayout(sessionKey?: number | string, driverNumber?: number, lapStart?: string, lapDuration?: number | null): TrackLayout {
-  const empty = { ...FALLBACK, svgPath: '' };
-  const [layout, setLayout] = useState<TrackLayout>(empty);
+  const requestKey = JSON.stringify([sessionKey, driverNumber, lapStart, lapDuration]);
+  const [result, setResult] = useState<ScopedResult<TrackLayout> | null>(null);
   useEffect(() => {
-    if (sessionKey === 9500) { setLayout(FALLBACK); return; }
-    setLayout(empty);
+    if (sessionKey === 9500) return;
     if (!sessionKey || Number(sessionKey) < 0 || !driverNumber || !lapStart || !lapDuration) return;
     const c = new AbortController();
     const end = new Date(Date.parse(lapStart) + lapDuration * 1000).toISOString();
     openF1<{x:number;y:number}>(`/location?session_key=${sessionKey}&driver_number=${driverNumber}&date>=${lapStart}&date<=${end}`, c.signal).then(raw => {
       if (c.signal.aborted || raw.length < 100) return;
       const {path,toSvg} = pointsToPath(raw);
-      setLayout({svgPath:path,viewBox:`0 0 800 ${VIEW_H}`,toSvg,isFromAPI:true});
+      setResult({key:requestKey,value:{svgPath:path,viewBox:`0 0 800 ${VIEW_H}`,toSvg,isFromAPI:true}});
     }).catch(() => {});
     return () => c.abort();
-  }, [sessionKey,driverNumber,lapStart,lapDuration]);
-  return sessionKey === 9500 ? FALLBACK : layout;
+  }, [sessionKey,driverNumber,lapStart,lapDuration,requestKey]);
+  return sessionKey === 9500 ? FALLBACK : valueForRequest(requestKey, result) ?? EMPTY_LAYOUT;
 }
