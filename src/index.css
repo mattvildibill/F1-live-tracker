@@ -49,7 +49,7 @@ button,a,select,input { outline-offset:4px; }
 button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible { outline:2px solid #5eead4; }
 button:disabled { opacity:.4; cursor:not-allowed; }
 .app-shell { height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
-.app-shell>header,.mode-bar,.replay-controls,.panel-tabs,.app-footer,.data-note { flex-shrink:0; }
+.app-shell>header,.mode-bar,.replay-controls,.panel-navigation,.app-footer,.data-note { flex-shrink:0; }
 .app-shell>main { flex:1; min-height:0; overflow:auto; }
 .app-shell>main.command-content { overflow:auto; }
 .mode-bar { padding:10px 18px; display:flex; align-items:center; flex-wrap:wrap; gap:12px; background:#080f1b; border-bottom:1px solid #223047; }
@@ -57,7 +57,8 @@ button:disabled { opacity:.4; cursor:not-allowed; }
 .mode-group { display:flex; gap:5px; }
 .mode-group button.active { background:#14342f; color:#99f6e4; border-color:#2c796d; }
 .mode-description { font-size:11px; color:#94a3b8; flex:1; }
-.panel-tabs { display:flex; overflow-x:auto; background:#0b1322; border-bottom:1px solid #243047; }
+.panel-navigation { background:#0b1322; border-bottom:1px solid #243047; }
+.panel-tabs { display:flex; align-items:stretch; padding:0 12px; gap:2px; }
 .panel-tabs button { padding:13px 16px; border:0; background:none; color:#94a3b8; white-space:nowrap; font-size:12px; cursor:pointer; border-bottom:2px solid transparent; }
 .panel-tabs button[aria-current] { color:#f1f5f9; border-color:#5eead4; background:#102224; }
 .app-footer { display:flex; justify-content:space-between; gap:15px; padding:8px 18px; font-size:10px; color:#94a3b8; border-top:1px solid #223047; }
@@ -112,3 +113,35 @@ button:disabled { opacity:.4; cursor:not-allowed; }
 .session-picker>button { width:100%; margin-top:8px; text-align:left; }
 .session-picker p { margin:15px 0; line-height:1.6; color:#bac9db; }
 @media(max-width:700px) { .command-content>div[style*="height: 100%"] {height:auto!important;min-height:100%}.command-content>div>div:nth-child(2){flex-direction:column!important;overflow:visible!important}.command-content>div>div:nth-child(2)>div{flex:none!important;width:100%;min-height:280px;max-height:500px;overflow:auto!important} }
+
+/* Keep core views in reach; secondary analysis stays available in one compact menu. */
+.analysis-picker { display:flex; align-items:center; margin-left:auto; padding:5px 0 5px 12px; }
+.analysis-picker select,.mobile-panel-picker select { max-width:100%; min-height:36px; border:1px solid #334155; border-radius:6px; padding:7px 30px 7px 10px; color:#b8c8dc; background:#101d30; font-size:12px; cursor:pointer; }
+.analysis-picker.active select { color:#99f6e4; border-color:#2c796d; }
+.mobile-panel-picker { display:none; }
+.weekend-loading { max-width:850px; padding:28px; }
+.weekend-loading h1 { font-size:clamp(24px,3vw,34px); }
+.weekend-loading>p[role=status] { color:#a2b3c8; font-size:14px; line-height:1.7; }
+.loading-line { display:block; width:min(260px,75%); height:3px; margin-top:24px; border-radius:3px; background:linear-gradient(90deg,#25453f,#94f5d0,#25453f); }
+@media(max-width:760px) {
+  .panel-tabs { display:none; }
+  .mobile-panel-picker { display:flex; align-items:center; gap:12px; padding:8px 12px; color:#91a3b8; font-size:12px; }
+  .mobile-panel-picker select { flex:1; min-width:0; min-height:40px; font-size:14px; }
+  .mode-group { width:100%; }
+  .mode-group button { flex:1; min-height:40px; font-size:12px; white-space:nowrap; }
+  .mode-bar { gap:8px; }
+  .replay-controls { gap:8px 12px; }
+  .replay-controls label { min-width:0; }
+  .replay-controls label:nth-child(2) { flex:1; }
+  .replay-controls label:nth-child(2) select { min-width:0; width:100%; }
+  .replay-seek { flex-basis:100%; }
+  .replay-controls button,.replay-controls select,.weekend-actions button { min-height:40px; }
+  .weekend-loading { padding:22px; }
+  .app-footer { padding:8px 12px; align-items:center; }
+  .app-footer a { flex-shrink:0; }
+}
+@media(max-width:420px) {
+  .mode-group button { padding:8px 7px; font-size:11px; }
+  .app-shell>header>div:first-child { gap:8px 12px; }
+  .replay-controls select { max-width:200px; }
+}

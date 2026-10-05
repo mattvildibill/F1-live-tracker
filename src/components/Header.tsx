@@ -57,7 +57,7 @@ export default function Header({ state }: Props) {
 
         {/* Live/Replay indicator */}
         <div className="flex items-center gap-1.5">
-          <span className={`w-2.5 h-2.5 rounded-full live-dot ${isLive ? 'bg-red-500' : 'bg-gray-500'}`} />
+          <span className={`w-2.5 h-2.5 rounded-full ${isLive ? 'live-dot' : ''} ${isLive ? 'bg-red-500' : 'bg-gray-500'}`} />
           <span className={`text-xs font-bold uppercase tracking-widest ${isLive ? 'text-red-400' : 'text-gray-400'}`}>
             {state.statusText ?? (isLive ? 'Live' : 'Session')}
           </span>
