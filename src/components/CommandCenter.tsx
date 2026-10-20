@@ -44,7 +44,7 @@ function badge(bg: string, color: string): React.CSSProperties {
 // ─── Section header ───────────────────────────────────────────────────────────
 function SectionHead({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#374151', padding: '3px 8px', borderBottom: '1px solid #1f2937', backgroundColor: '#060d1a' }}>
+    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#a9bbcf', padding: '6px 8px', borderBottom: '1px solid #1f2937', backgroundColor: '#060d1a' }}>
       {children}
     </div>
   );
@@ -59,7 +59,7 @@ export default function CommandCenter({ state, driverTrackPositions }: Props) {
 
   const sessionKey = state.session?.session_key;
   const referenceLap = state.laps.find(l => l.date_start && l.lap_duration && !l.is_pit_out_lap && l.lap_number > 1);
-  const layout = useTrackLayout(sessionKey, referenceLap?.driver_number, referenceLap?.date_start, referenceLap?.lap_duration);
+  const layout = useTrackLayout(sessionKey, referenceLap?.driver_number, referenceLap?.date_start, referenceLap?.lap_duration, state.source === 'demo');
 
   // ── Pure mini map geometry ───────────────────────────────────────────────
   const geometry = useMemo(() => createTrackGeometry(layout.svgPath), [layout.svgPath]);

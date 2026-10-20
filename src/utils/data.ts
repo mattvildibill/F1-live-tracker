@@ -1,10 +1,28 @@
 import type { F1State } from '../types/f1';
 export const JOLPICA = 'https://api.jolpi.ca/ergast/f1';
 export const EMPTY_STATE: F1State = { session: null, drivers: [], positions: [], intervals: [], laps: [], carData: [], pits: [], raceControl: [], weather: null, locations: [], stints: {}, teamRadio: [], ersStates: {}, isLive: false, isStale: false, lastUpdated: null, currentLap: 0, totalLaps: 0 };
+export function providerName(url: string) {
+  if (url.includes('open-meteo.com')) return 'Open-Meteo weather';
+  if (url.includes('jolpi.ca') || url.startsWith('/jolpica')) return 'Jolpica race data';
+  if (url.includes('openf1.org') || url.startsWith('/openf1')) return 'OpenF1 timing';
+  return 'The data provider';
+}
+export function providerError(url: string, status: number) {
+  const provider = providerName(url);
+  if ((status === 401 || status === 403) && provider === 'OpenF1 timing') return 'OpenF1 requires authenticated access during live sessions. You can still try the synthetic demo or recorded race replay.';
+  if (status === 401 || status === 403) return `${provider} denied this request. Try again later or use the synthetic demo.`;
+  if (status === 429) return `${provider} has reached its request limit. Wait a moment before retrying.`;
+  return `${provider} is unavailable (${status}). Please try again.`;
+}
 export async function json<T>(url: string, signal?: AbortSignal): Promise<T> {
   const timeout = AbortSignal.timeout(15000);
-  const res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
-  if (!res.ok) throw new Error(res.status === 401 || res.status === 403 ? 'OpenF1 requires authenticated access during live sessions. Weekend information remains available below.' : res.status === 429 ? 'Data provider rate limit reached. Retrying automatically.' : `Data request failed (${res.status}). Please retry.`);
+  let res: Response;
+  try { res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout }); }
+  catch (error) {
+    if (signal?.aborted) throw error;
+    throw new Error(timeout.aborted ? `${providerName(url)} took too long to respond. Please retry.` : `${providerName(url)} could not be reached. Check your connection or try the synthetic demo.`, { cause: error });
+  }
+  if (!res.ok) throw new Error(providerError(url, res.status));
   return res.json();
 }
 // One shared queue keeps all OpenF1 consumers below the free 30 requests/min limit.

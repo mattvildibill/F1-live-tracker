@@ -183,11 +183,11 @@ const FALLBACK: TrackLayout = {
 
 const EMPTY_LAYOUT: TrackLayout = { ...FALLBACK, svgPath: '' };
 
-export function useTrackLayout(sessionKey?: number | string, driverNumber?: number, lapStart?: string, lapDuration?: number | null): TrackLayout {
-  const requestKey = JSON.stringify([sessionKey, driverNumber, lapStart, lapDuration]);
+export function useTrackLayout(sessionKey?: number | string, driverNumber?: number, lapStart?: string, lapDuration?: number | null, isDemo = false): TrackLayout {
+  const requestKey = JSON.stringify([sessionKey, driverNumber, lapStart, lapDuration, isDemo]);
   const [result, setResult] = useState<ScopedResult<TrackLayout> | null>(null);
   useEffect(() => {
-    if (sessionKey === 9500) return;
+    if (isDemo) return;
     if (!sessionKey || Number(sessionKey) < 0 || !driverNumber || !lapStart || !lapDuration) return;
     const c = new AbortController();
     const end = new Date(Date.parse(lapStart) + lapDuration * 1000).toISOString();
@@ -197,6 +197,6 @@ export function useTrackLayout(sessionKey?: number | string, driverNumber?: numb
       setResult({key:requestKey,value:{svgPath:path,viewBox:`0 0 800 ${VIEW_H}`,toSvg,isFromAPI:true}});
     }).catch(() => {});
     return () => c.abort();
-  }, [sessionKey,driverNumber,lapStart,lapDuration,requestKey]);
-  return sessionKey === 9500 ? FALLBACK : valueForRequest(requestKey, result) ?? EMPTY_LAYOUT;
+  }, [sessionKey,driverNumber,lapStart,lapDuration,requestKey,isDemo]);
+  return isDemo ? FALLBACK : valueForRequest(requestKey, result) ?? EMPTY_LAYOUT;
 }

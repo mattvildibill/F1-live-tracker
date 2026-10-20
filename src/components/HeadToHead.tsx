@@ -139,6 +139,7 @@ export default function HeadToHead({ state }: Props) {
       {/* Driver selects */}
       <div className="flex items-center gap-4 flex-wrap">
         <select
+          aria-label="Driver A"
           className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm flex-1"
           value={driverA ?? ''}
           onChange={(e) => setDriverA(Number(e.target.value) || null)}
@@ -154,6 +155,7 @@ export default function HeadToHead({ state }: Props) {
         <span className="text-gray-500 font-bold">vs</span>
 
         <select
+          aria-label="Driver B"
           className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm flex-1"
           value={driverB ?? ''}
           onChange={(e) => setDriverB(Number(e.target.value) || null)}

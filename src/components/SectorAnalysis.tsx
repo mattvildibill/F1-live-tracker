@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { F1State, Lap } from '../types/f1';
 import { getTeamColor } from '../utils/teamColors';
 import { formatLapTime } from '../utils/tyreUtils';
+import { sectorsOf } from '../utils/sectorData';
 
 interface Props {
   state: F1State;
@@ -17,35 +18,13 @@ interface DriverSectorRow {
   lastLap: Lap | null;
 }
 
-/**
- * Deterministic sector split for laps that lack real sector data (simulator /
- * sparse sessions). Albert Park's sectors are roughly 31% / 37% / 32% of the
- * lap; a per-driver-per-lap hash shifts a few hundredths between sectors so
- * comparisons stay interesting without inventing randomness.
- */
-function synthesizeSectors(lap: Lap): [number, number, number] | null {
-  if (lap.lap_duration == null) return null;
-  const h = Math.sin(lap.driver_number * 12.9898 + lap.lap_number * 78.233) * 43758.5453;
-  const jitter = (h - Math.floor(h) - 0.5) * 0.012; // ±0.6% shifted between S1/S3
-  const s1 = lap.lap_duration * (0.31 + jitter);
-  const s2 = lap.lap_duration * 0.37;
-  const s3 = lap.lap_duration - s1 - s2;
-  return [s1, s2, s3];
-}
-
-function sectorsOf(lap: Lap): [number, number, number] | null {
-  if (lap.duration_sector_1 != null && lap.duration_sector_2 != null && lap.duration_sector_3 != null) {
-    return [lap.duration_sector_1, lap.duration_sector_2, lap.duration_sector_3];
-  }
-  return lap.session_key === 9500 ? synthesizeSectors(lap) : null;
-}
-
 function fmtSector(s: number | null): string {
   return s == null ? '--.---' : s.toFixed(3);
 }
 
 export default function SectorAnalysis({ state }: Props) {
   const { drivers, laps, positions } = state;
+  const allowSynthetic = state.source === 'demo';
   const [sortBy, setSortBy] = useState<'position' | 'theoretical'>('position');
 
   const driverMap = useMemo(() => new Map(drivers.map((d) => [d.driver_number, d])), [drivers]);
@@ -69,7 +48,7 @@ export default function SectorAnalysis({ state }: Props) {
       let bestS1: number | null = null, bestS2: number | null = null, bestS3: number | null = null;
       let bestLap: number | null = null;
       for (const l of dLaps) {
-        const s = sectorsOf(l);
+        const s = sectorsOf(l, allowSynthetic);
         if (s) {
           if (bestS1 == null || s[0] < bestS1) bestS1 = s[0];
           if (bestS2 == null || s[1] < bestS2) bestS2 = s[1];
@@ -86,7 +65,7 @@ export default function SectorAnalysis({ state }: Props) {
       });
     }
     return out;
-  }, [laps]);
+  }, [laps, allowSynthetic]);
 
   // Overall fastest per sector (purple)
   const overall = useMemo(() => ({

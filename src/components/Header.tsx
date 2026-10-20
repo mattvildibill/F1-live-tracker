@@ -48,11 +48,11 @@ export default function Header({ state }: Props) {
 
   return (
     <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
-      <div className="px-4 py-2 flex items-center gap-4 flex-wrap">
+      <div className="header-main px-4 py-2 flex items-center gap-4 flex-wrap">
         {/* Logo / Title */}
         <div className="flex items-center gap-2">
           <span className="text-red-500 font-black text-xl tracking-tight">F1</span>
-          <span className="text-white font-semibold text-sm">Live Tracker</span>
+          <h1 className="header-title text-white font-semibold text-sm">Live Tracker</h1>
         </div>
 
         {/* Live/Replay indicator */}
@@ -70,11 +70,11 @@ export default function Header({ state }: Props) {
         )}
 
         {/* Session name */}
-        <span className="text-gray-300 text-sm font-medium">{sessionLabel}</span>
+        <span className="session-name text-gray-300 text-sm font-medium">{sessionLabel}</span>
 
         {/* Lap counter */}
         {currentLap > 0 && (
-          <span className="text-gray-400 text-sm">
+          <span className="header-secondary text-gray-400 text-sm">
             Lap <span className="text-white font-bold">{currentLap}</span>
             {totalLaps > 0 && <span> / {totalLaps}</span>}
           </span>
@@ -82,7 +82,7 @@ export default function Header({ state }: Props) {
 
         {/* Cars running */}
         {running > 0 && started > 0 && (
-          <span className="text-gray-500 text-xs">
+          <span className="header-secondary text-gray-500 text-xs">
             🏎 <span className={retired.size ? 'text-orange-300 font-semibold' : 'text-gray-300'}>{running}</span>/{started} classified
           </span>
         )}
@@ -100,7 +100,7 @@ export default function Header({ state }: Props) {
 
         {/* Weather chips */}
         {weather && (
-          <div className="flex items-center gap-2 ml-auto text-xs text-gray-400">
+          <div className="header-secondary flex items-center gap-2 ml-auto text-xs text-gray-400">
             <span className="bg-gray-800 px-2 py-0.5 rounded">
               🌡 Track {weather.track_temperature.toFixed(0)}°C
             </span>
@@ -122,7 +122,7 @@ export default function Header({ state }: Props) {
 
       {/* Ticker */}
       {tickerText && (
-        <div className="overflow-hidden bg-gray-950 border-t border-gray-800 py-1 text-xs text-gray-400">
+        <div className="header-ticker overflow-hidden bg-gray-950 border-t border-gray-800 py-1 text-xs text-gray-400">
           <span className="ticker-inner px-4">{tickerText}</span>
         </div>
       )}

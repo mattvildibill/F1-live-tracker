@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { F1State, Position, Interval, DriverStints, StintInfo } from '../types/f1';
+import { createDemoLapSelector } from '../utils/demoLapData';
 import {
   mockF1State, mockLaps, mockPits, mockRaceControl, mockErsStates,
   TOTAL_LAPS, DRIVER_CONFIGS, DRIVER_COMPOUND_SEQUENCES,
+  STARTING_GRID,
 } from '../mocks/australianGP2026';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -118,9 +120,11 @@ function buildStints(lapsUpTo: typeof mockLaps, pitsUpTo: typeof mockPits): Driv
   return stints;
 }
 
+const dataForLap = createDemoLapSelector(mockLaps, mockPits, mockRaceControl, buildStints);
 function deriveState(simTime: number): F1State {
   if (simTime <= 0) {
-    return { ...mockF1State, positions: [], intervals: [], laps: [], pits: [], raceControl: [], stints: {}, ersStates: {}, carData: [], weather: null, teamRadio: [], locations: [], currentLap: 0, lastUpdated: new Date() };
+    const positions = mockF1State.drivers.map(driver => ({ driver_number: driver.driver_number, position: STARTING_GRID[driver.driver_number], date: '', session_key: 9500, meeting_key: 1201 })).filter(p => p.position > 0).sort((a, b) => a.position - b.position);
+    return { ...mockF1State, positions, startingGrid: STARTING_GRID, intervals: [], laps: [], pits: [], raceControl: [], stints: {}, ersStates: {}, carData: [], weather: null, teamRadio: [], locations: [], currentLap: 0, lastUpdated: new Date() };
   }
 
   // Track progress (distance covered, in laps) per driver at this instant
@@ -166,9 +170,7 @@ function deriveState(simTime: number): F1State {
   });
 
   const leaderLap = driverProgress(LEADER_DN, simTime).lapsCompleted;
-  const lapsUpTo = mockLaps.filter((l) => l.lap_number <= leaderLap);
-  const pitsUpTo = mockPits.filter((p) => p.lap_number < leaderLap);
-  const rcUpTo   = mockRaceControl.filter((rc) => (rc.lap_number ?? 0) <= leaderLap + 1);
+  const lapData = dataForLap(leaderLap);
 
   // ERS: vary charge based on progress + per-driver sin variation
   const scaledErs = Object.fromEntries(
@@ -183,10 +185,10 @@ function deriveState(simTime: number): F1State {
     ...mockF1State,
     positions,
     intervals,
-    laps: lapsUpTo,
-    pits: pitsUpTo,
-    raceControl: rcUpTo,
-    stints: buildStints(lapsUpTo, pitsUpTo),
+    laps: lapData.laps,
+    pits: lapData.pits,
+    raceControl: lapData.raceControl,
+    stints: lapData.stints,
     ersStates: scaledErs,
     currentLap: leaderLap,
     lastUpdated: new Date(),
@@ -207,17 +209,18 @@ export interface SimControls {
   setSpeed: (s: PlaybackSpeed) => void;
 }
 
-export function useRaceSimulator(enabled = true): {
+export function useRaceSimulator(enabled = true, initialTime = 120): {
   state: F1State;
   controls: SimControls;
   driverTrackPositions: Map<number, number>;
 } {
-  const [simTime, setSimTime]   = useState(0);
+  const [simTime, setSimTime]   = useState(() => Math.max(0, Math.min(TOTAL_SIM_SECONDS, initialTime)));
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed]       = useState<PlaybackSpeed>(60);
   const tickRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const tick = useCallback(() => {
+    if (document.hidden) return;
     setSimTime((prev) => {
       if (prev >= TOTAL_SIM_SECONDS) { setIsPlaying(false); return TOTAL_SIM_SECONDS; }
       return prev + SIM_SEC_PER_TICK[speed];
@@ -229,6 +232,11 @@ export function useRaceSimulator(enabled = true): {
     if (isPlaying && enabled) tickRef.current = setInterval(tick, TICK_MS);
     return () => clearInterval(tickRef.current);
   }, [isPlaying, tick, enabled]);
+  useEffect(() => {
+    const pauseWhenHidden = () => { if (document.hidden) setIsPlaying(false); };
+    document.addEventListener('visibilitychange', pauseWhenHidden);
+    return () => document.removeEventListener('visibilitychange', pauseWhenHidden);
+  }, []);
 
   const state                 = useMemo(() => deriveState(simTime), [simTime]);
   const driverTrackPositions  = useMemo(() => computeTrackPositions(simTime), [simTime]);

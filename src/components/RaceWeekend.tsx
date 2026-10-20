@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { useRaceWeekend } from '../hooks/useRaceWeekend';
 import { raceTime } from '../utils/data';
-type Props = { weekend: ReturnType<typeof useRaceWeekend>; timingError?: string; onTiming: () => void; onReplay: () => void };
-export default function RaceWeekend({ weekend: w, timingError, onTiming, onReplay }: Props) {
+type Props = { weekend: ReturnType<typeof useRaceWeekend>; timingError?: string; onTiming: () => void; onReplay: () => void; onDemo: () => void };
+export default function RaceWeekend({ weekend: w, timingError, onTiming, onReplay, onDemo }: Props) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   const race = w.race;
-  if (!race) return <div className="weekend"><section className="race-card weekend-loading" aria-busy={w.loading}><p className="eyebrow">FORMULA 1 / RACE WEEKEND</p><h1>{w.loading ? 'Loading this race weekend…' : 'Weekend data unavailable'}</h1><p role="status">{w.error || 'Fetching the season calendar, schedule and standings.'}</p>{w.loading ? <span className="loading-line" aria-hidden="true" /> : <div className="weekend-actions"><button className="primary-action" onClick={w.refresh}>Retry weekend</button><button onClick={onReplay}>Replay a past race</button><a href="https://www.formula1.com/en/live-timing" target="_blank" rel="noreferrer">Official live timing ↗</a></div>}</section></div>;
+  if (!race) return <div className="weekend"><section className="race-card weekend-loading" aria-busy={w.loading}><p className="eyebrow">FORMULA 1 / RACE WEEKEND</p><h2>{w.loading ? 'Loading this race weekend…' : 'Weekend data unavailable'}</h2><p role="status">{w.error || 'Fetching the season calendar, schedule and standings.'}</p><div className="weekend-actions"><button className="primary-action" onClick={onDemo}>Try the interactive demo</button>{!w.loading && <><button onClick={w.refresh}>Retry weekend</button><button onClick={onReplay}>Replay a past race</button></>}<a href="https://www.formula1.com/en/live-timing" target="_blank" rel="noreferrer">Official live timing ↗</a></div><p className="fine-print">The demo is a clearly labeled synthetic race. It works without the external feeds.</p>{w.loading && <span className="loading-line" aria-hidden="true" />}</section></div>;
   const delta = raceTime(race) - now;
   const countdown = delta > 0 ? `${Math.floor(delta / 86400000)}d ${Math.floor(delta / 3600000) % 24}h ${Math.floor(delta / 60000) % 60}m ${Math.floor(delta / 1000) % 60}s` : 'Scheduled start has passed';
   const standings = w.standings?.StandingsLists[0];

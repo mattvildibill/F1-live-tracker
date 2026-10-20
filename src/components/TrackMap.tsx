@@ -24,7 +24,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
 
   // Try to load real GPS-derived layout; falls back to hand-crafted Albert Park
   const referenceLap = state.laps.find(l => l.date_start && l.lap_duration && !l.is_pit_out_lap && l.lap_number > 1);
-  const layout = useTrackLayout(sessionKey, referenceLap?.driver_number, referenceLap?.date_start, referenceLap?.lap_duration);
+  const layout = useTrackLayout(sessionKey, referenceLap?.driver_number, referenceLap?.date_start, referenceLap?.lap_duration, state.source === 'demo');
 
   const geometry = useMemo(() => createTrackGeometry(layout.svgPath), [layout.svgPath]);
 
@@ -150,6 +150,8 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
       {/* ── SVG Track ───────────────────────────────────────────────────── */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <svg
+          role="img"
+          aria-label="Synthetic Melbourne circuit map. Driver order is listed in the standings below."
           viewBox={layout.viewBox}
           style={{ width: '100%', maxHeight: '74vh', background: '#030712', borderRadius: '12px', border: '1px solid #1f2937', display: 'block' }}
         >
@@ -313,7 +315,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
 
         {/* Legend */}
         <div style={{ backgroundColor: '#0f172a', borderRadius: '8px', padding: '10px 12px', border: '1px solid #1f2937', fontSize: '10px', color: '#6b7280' }}>
-          <div style={{ fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4b5563' }}>Legend</div>
+          <div style={{ fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#a0b0c4' }}>Legend</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: '18px', height: '3px', backgroundColor: '#22c55e', opacity: 0.7, borderRadius: '1px' }} />
@@ -337,7 +339,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
 
         {/* Live leaderboard */}
         <div style={{ backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #1f2937', overflow: 'hidden' }}>
-          <div style={{ padding: '7px 12px', borderBottom: '1px solid #1f2937', fontSize: '10px', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+          <div style={{ padding: '7px 12px', borderBottom: '1px solid #1f2937', fontSize: '10px', color: '#a0b0c4', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
             Standings
           </div>
 
@@ -359,7 +361,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
                 backgroundColor: pos.position === 1 ? 'rgba(239,68,68,0.05)' : 'transparent',
               }}>
                 {/* Position */}
-                <span style={{ fontSize: '10px', fontWeight: 700, color: '#4b5563', width: '13px', textAlign: 'right', flexShrink: 0 }}>{pos.position}</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: '#a0b0c4', width: '13px', textAlign: 'right', flexShrink: 0 }}>{pos.position}</span>
 
                 {/* Team stripe */}
                 <div style={{ width: '3px', height: '28px', borderRadius: '2px', backgroundColor: color, flexShrink: 0 }} />
@@ -370,7 +372,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
                     <span style={{ fontSize: '11px', fontWeight: 700, color: '#f3f4f6' }}>{driver.name_acronym}</span>
                     {pitting && <span style={{ fontSize: '7px', backgroundColor: '#1e3a5f', color: '#60a5fa', padding: '1px 3px', borderRadius: '2px', fontWeight: 700 }}>PIT</span>}
                   </div>
-                  <span style={{ fontSize: '9px', fontFamily: 'monospace', color: pos.position === 1 ? '#fbbf24' : '#6b7280' }}>
+                  <span style={{ fontSize: '11px', fontFamily: 'monospace', color: pos.position === 1 ? '#fbbf24' : '#6b7280' }}>
                     {pos.position === 1 ? 'Leader' : formatGap(intv?.gap_to_leader)}
                   </span>
                 </div>
@@ -381,7 +383,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
                 </div>
 
                 {/* Last lap time */}
-                <span style={{ fontSize: '8px', fontFamily: 'monospace', color: isFastest ? '#a855f7' : '#4b5563', flexShrink: 0, width: '44px', textAlign: 'right' }}>
+                <span style={{ fontSize: '10px', fontFamily: 'monospace', color: isFastest ? '#a855f7' : '#4b5563', flexShrink: 0, width: '44px', textAlign: 'right' }}>
                   {formatLapTime(lastLap)}
                 </span>
 
@@ -396,7 +398,7 @@ export default function TrackMap({ state, driverTrackPositions }: Props) {
           })}
 
           {!sorted.length && (
-            <div style={{ padding: '24px', textAlign: 'center', color: '#4b5563', fontSize: '12px' }}>
+            <div style={{ padding: '24px', textAlign: 'center', color: '#a0b0c4', fontSize: '12px' }}>
               Waiting for position data…
             </div>
           )}

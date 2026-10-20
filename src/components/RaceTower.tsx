@@ -66,8 +66,8 @@ export default function RaceTower({ state }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="timing-table-scroll overflow-x-auto">
+      <table className="timing-table w-full text-sm" aria-label={state.currentLap === 0 ? 'Starting grid' : 'Race classification'}>
         <thead>
           <tr className="text-xs text-gray-500 uppercase border-b border-gray-800">
             <th className="text-left py-2 px-3 w-8">P</th>
@@ -134,7 +134,8 @@ export default function RaceTower({ state }: Props) {
                           <span className="text-[9px] font-black text-purple-400 tracking-wider">FL</span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">{driver.broadcast_name}</div>
+                      <div className="driver-full-name text-xs text-gray-500">{driver.broadcast_name}</div>
+                      <div className="mobile-last-lap">Last lap {formatLapTime(lastLap)}</div>
                     </div>
                   </div>
                 </td>

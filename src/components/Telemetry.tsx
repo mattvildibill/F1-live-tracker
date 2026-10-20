@@ -82,17 +82,15 @@ export default function Telemetry({ state }: Props) {
   // Same-team compare: shift B toward white so both traces are readable
   const colorBDraw = dA && dB && dA.team_name === dB.team_name ? '#e5e7eb' : colorB;
 
-  const labels = useMemo(
-    () => (telA.samples.length ? telA.samples : telB.samples).map((s) => s.dist),
-    [telA.samples, telB.samples]
-  );
+  const axisTitle = telA.synthetic ? 'Synthetic distance (m)' : 'Elapsed lap time (%)';
+  const chartOptions = { ...chartBase, scales: { ...chartBase.scales, x: { ...chartBase.scales.x, type: 'linear' as const, title: { ...chartBase.scales.x.title, text: axisTitle } } } };
 
   const mkDatasets = (field: 'speed' | 'throttle' | 'brake' | 'gear') => {
     const ds = [];
     if (telA.samples.length && dA) {
       ds.push({
         label: `${dA.name_acronym}`,
-        data: telA.samples.map((s) => s[field]),
+        data: telA.samples.map(s => ({ x: s.dist, y: s[field] })),
         borderColor: colorA,
         backgroundColor: 'transparent',
         borderWidth: 1.8,
@@ -104,7 +102,7 @@ export default function Telemetry({ state }: Props) {
     if (telB.samples.length && dB) {
       ds.push({
         label: `${dB.name_acronym}`,
-        data: telB.samples.map((s) => s[field]),
+        data: telB.samples.map(s => ({ x: s.dist, y: s[field] })),
         borderColor: colorBDraw,
         backgroundColor: 'transparent',
         borderWidth: 1.8,
@@ -183,12 +181,14 @@ export default function Telemetry({ state }: Props) {
         </div>
       </div>
 
+      {telA.samples.length > 0 && <details className="telemetry-summary"><summary>Telemetry summary</summary><table><caption>Selected lap · {telA.synthetic ? 'synthetic demo' : 'recorded samples'}</caption><thead><tr><th>Driver</th><th>Lap time</th><th>Speed range</th><th>Samples</th></tr></thead><tbody>{[{ driver: dA, telemetry: telA, lap: lapA }, { driver: dB, telemetry: telB, lap: lapB }].filter(row => row.driver && row.telemetry.samples.length).map(row => <tr key={row.driver!.driver_number}><th scope="row">{row.driver!.name_acronym}</th><td>{formatLapTime(row.lap?.lap_duration)}</td><td>{Math.round(Math.min(...row.telemetry.samples.map(sample => sample.speed)))}–{Math.round(Math.max(...row.telemetry.samples.map(sample => sample.speed)))} km/h</td><td>{row.telemetry.samples.length}</td></tr>)}</tbody></table></details>}
       {telA.synthetic && (
         <p className="text-xs text-gray-600 italic">
           Simulator mode — synthetic traces generated from the Albert Park speed profile.
-          Switch to Live mode for real OpenF1 car telemetry.
+          These are illustrations of the demo, not measured car telemetry.
         </p>
       )}
+      {!telA.synthetic && telA.samples.length > 0 && <p className="fine-print">Aligned by elapsed lap time, not measured distance. A shared percentage does not imply the cars were at the same point on the circuit.</p>}
       {telA.error && !telA.samples.length && (
         <p className="text-xs text-orange-400">{telA.error}</p>
       )}
@@ -200,9 +200,9 @@ export default function Telemetry({ state }: Props) {
           <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Speed (km/h)</h3>
             <div className="h-56">
-              <Line
-                data={{ labels, datasets: mkDatasets('speed') }}
-                options={{ ...chartBase, scales: { ...chartBase.scales, y: { ...chartBase.scales.y, suggestedMin: 60, suggestedMax: 340 } } }}
+              <Line role="img" aria-label={`${axisTitle}; ${dA?.name_acronym ?? 'selected driver'} telemetry. A numeric summary follows the charts.`}
+                data={{ datasets: mkDatasets('speed') }}
+                options={{ ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, suggestedMin: 60, suggestedMax: 340 } } }}
               />
             </div>
           </div>
@@ -211,18 +211,18 @@ export default function Telemetry({ state }: Props) {
             <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Throttle (%)</h3>
               <div className="h-40">
-                <Line
-                  data={{ labels, datasets: mkDatasets('throttle') }}
-                  options={{ ...chartBase, plugins: { ...chartBase.plugins, legend: { display: false } }, scales: { ...chartBase.scales, y: { ...chartBase.scales.y, min: 0, max: 105 } } }}
+                <Line role="img" aria-label={`${axisTitle}; ${dA?.name_acronym ?? 'selected driver'} telemetry. A numeric summary follows the charts.`}
+                  data={{ datasets: mkDatasets('throttle') }}
+                  options={{ ...chartOptions, plugins: { ...chartOptions.plugins, legend: { display: false } }, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, min: 0, max: 105 } } }}
                 />
               </div>
             </div>
             <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Brake (%)</h3>
               <div className="h-40">
-                <Line
-                  data={{ labels, datasets: mkDatasets('brake') }}
-                  options={{ ...chartBase, plugins: { ...chartBase.plugins, legend: { display: false } }, scales: { ...chartBase.scales, y: { ...chartBase.scales.y, min: 0, max: 105 } } }}
+                <Line role="img" aria-label={`${axisTitle}; ${dA?.name_acronym ?? 'selected driver'} telemetry. A numeric summary follows the charts.`}
+                  data={{ datasets: mkDatasets('brake') }}
+                  options={{ ...chartOptions, plugins: { ...chartOptions.plugins, legend: { display: false } }, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, min: 0, max: 105 } } }}
                 />
               </div>
             </div>
@@ -232,13 +232,13 @@ export default function Telemetry({ state }: Props) {
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
               Gear
               <span className="normal-case font-normal text-gray-600 ml-2">
-                DRS open where the speed trace jumps on the straights
+                Speed changes alone do not establish DRS state
               </span>
             </h3>
             <div className="h-36">
-              <Line
-                data={{ labels, datasets: mkDatasets('gear') }}
-                options={{ ...chartBase, plugins: { ...chartBase.plugins, legend: { display: false } }, scales: { ...chartBase.scales, y: { ...chartBase.scales.y, min: 1, max: 8, ticks: { ...chartBase.scales.y.ticks, stepSize: 1 } } } }}
+              <Line role="img" aria-label={`${axisTitle}; ${dA?.name_acronym ?? 'selected driver'} telemetry. A numeric summary follows the charts.`}
+                data={{ datasets: mkDatasets('gear') }}
+                options={{ ...chartOptions, plugins: { ...chartOptions.plugins, legend: { display: false } }, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, min: 1, max: 8, ticks: { ...chartOptions.scales.y.ticks, stepSize: 1 } } } }}
               />
             </div>
           </div>

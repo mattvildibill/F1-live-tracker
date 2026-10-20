@@ -1,23 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { jolpica, raceTime, type Race, type RecordedLap } from '../utils/data';
 import { replayState, type ReplayData } from '../utils/replay';
-export function useHistoricalReplay(enabled: boolean) {
-  const [year, setYear] = useState(new Date().getFullYear()); const [races, setRaces] = useState<Race[]>([]); const [round, setRound] = useState('');
+export function useHistoricalReplay(enabled: boolean, initialYear = new Date().getFullYear(), initialRound = '') {
+  const [year, setSelectedYear] = useState(initialYear); const [races, setRaces] = useState<Race[]>([]); const [round, setSelectedRound] = useState('');
+  const preferred = useRef({ year: initialYear, round: initialRound });
+  const setYear = (value: number) => { preferred.current = { year: value, round: '' }; setSelectedYear(value); };
+  const setRound = (value: string) => { preferred.current = { year, round: value }; setSelectedRound(value); };
+  const [loadingMessage, setLoadingMessage] = useState('Loading the season calendar…');
   const [data, setData] = useState<ReplayData | null>(null); const [error, setError] = useState<string | null>(null); const [loading, setLoading] = useState(false); const [progress, setProgress] = useState(0); const [playing, setPlaying] = useState(false); const [speed, setSpeed] = useState(1); const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (!enabled) return;
-    const c = new AbortController(); setLoading(true); setError(null); setRaces([]); setRound(''); setData(null); setPlaying(false);
+    const c = new AbortController(); setLoading(true); setError(null); setRaces([]); setSelectedRound(''); setLoadingMessage('Loading the season calendar…'); setData(null); setPlaying(false);
     jolpica(`${year}/races/?limit=100`, c.signal).then(d => {
       if (c.signal.aborted) return;
       const past = (d.RaceTable?.Races ?? []).filter(r => raceTime(r) + 6 * 3600000 < Date.now()).sort((a,b) => Number(b.round) - Number(a.round));
-      setRaces(past); setRound(past[0]?.round ?? '');
+      setRaces(past);
+      const selected = preferred.current.year === year && past.some(r => r.round === preferred.current.round) ? preferred.current.round : past[0]?.round ?? '';
+      preferred.current = { year, round: selected }; setSelectedRound(selected);
       if (!past.length) { setError('No completed races are available in this season yet. Choose another year.'); setLoading(false); }
     }).catch(e => { if (!c.signal.aborted) { setError(e.message); setLoading(false); } });
     return () => c.abort();
   }, [enabled, year, revision]);
   useEffect(() => {
     if (!enabled || !round) return;
-    const c = new AbortController(); setLoading(true); setData(null); setError(null); setProgress(0); setPlaying(false);
+    const c = new AbortController(); setLoading(true); setLoadingMessage('Loading the race results…'); setData(null); setError(null); setProgress(0); setPlaying(false);
     async function load() {
       try {
         const result = await jolpica(`${year}/${round}/results/?limit=100`, c.signal);
@@ -27,10 +33,12 @@ export function useHistoricalReplay(enabled: boolean) {
         while (offset < total) {
           const page = await jolpica(`${year}/${round}/laps/?limit=100&offset=${offset}`, c.signal);
           const rows = page.RaceTable?.Races[0]?.Laps ?? [];
-          total = Number(page.total); const count = rows.reduce((n,l) => n + l.Timings.length, 0);
+          total = Number(page.total);
+          if (!Number.isSafeInteger(total) || total < 0) throw new Error('The lap timing response was incomplete. Please retry.');
+          const count = rows.reduce((n,l) => n + l.Timings.length, 0);
           if (!count && offset < total) throw new Error('Lap data was incomplete. Retry to load a complete replay.');
           for (const row of rows) { const existing = laps.find(l => l.number === row.number); if (existing) existing.Timings.push(...row.Timings); else laps.push({ ...row, Timings: [...row.Timings] }); }
-          offset += count; if (!count) break;
+          offset += count; setLoadingMessage(`Loading recorded lap timing: ${offset} of ${total} entries…`); if (!count) break;
         }
         if (!laps.length) throw new Error('Recorded lap timing is unavailable for this race. Try another race or the offline demo.');
         let pits: NonNullable<Race['PitStops']> = [];
@@ -51,5 +59,5 @@ export function useHistoricalReplay(enabled: boolean) {
   useEffect(() => { if (totalLaps && progress >= totalLaps) setPlaying(false); }, [progress, totalLaps]);
   const currentLap = Math.floor(progress);
   const state = useMemo(() => data ? replayState(data, currentLap) : null, [data, currentLap]);
-  return { year, setYear, races, round, setRound, state, loading, error, progress, setProgress, speed, setSpeed, playing, totalLaps, toggle: () => { if (progress >= totalLaps) setProgress(0); setPlaying(p => !p); }, reset: () => { setPlaying(false); setProgress(0); }, retry: () => setRevision(n => n + 1) };
+  return { year, setYear, loadingMessage, races, round, setRound, state, loading, error, progress, setProgress, speed, setSpeed, playing, totalLaps, toggle: () => { if (progress >= totalLaps) setProgress(0); setPlaying(p => !p); }, reset: () => { setPlaying(false); setProgress(0); }, retry: () => setRevision(n => n + 1) };
 }

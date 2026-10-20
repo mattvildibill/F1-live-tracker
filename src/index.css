@@ -145,3 +145,76 @@ button:disabled { opacity:.4; cursor:not-allowed; }
   .app-shell>header>div:first-child { gap:8px 12px; }
   .replay-controls select { max-width:200px; }
 }
+
+/* Compact controls, readable timing values, and one scrolling surface on phones. */
+.header-title { margin:0; font-size:14px; line-height:20px; }
+.mobile-last-lap { display:none; }
+.timing-table td,.timing-table th { font-variant-numeric:tabular-nums; }
+.timing-table td:nth-child(4),.timing-table td:nth-child(5),.timing-table td:nth-child(6) { white-space:nowrap; }
+.demo-controls { flex-shrink:0; padding:10px 18px; display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; border-bottom:1px solid #293b54; background:#0a1628; }
+.demo-controls button,.share-view button { min-height:40px; padding:8px 12px; font-size:12px; border:1px solid #3e536d; border-radius:6px; background:#14233a; color:#e2e8f0; cursor:pointer; }
+.demo-primary { display:flex; align-items:center; gap:8px; }
+.demo-controls .demo-play { background:#94f5d0; color:#052b24; font-weight:700; }
+.demo-lap { color:#cbd5e1; font-size:12px; white-space:nowrap; }
+.demo-seek { display:flex; align-items:center; gap:12px; flex:1; min-width:240px; }
+.demo-seek input { width:100%; min-width:60px; min-height:40px; accent-color:#5eead4; }
+.demo-seek span:not(.sr-only) { white-space:nowrap; color:#a9b9cb; font-size:11px; }
+.demo-options { position:relative; color:#b8c8dc; font-size:12px; }
+.demo-options summary,.project-note summary,.telemetry-summary summary { cursor:pointer; padding:10px 0; }
+.demo-options>div { display:flex; gap:6px; padding:8px 0; }
+.demo-options button { min-width:40px; }
+.demo-options button[aria-pressed=true] { background:#1e5148; border-color:#5eead4; color:#b8ffee; }
+.app-footer { align-items:center; flex-wrap:wrap; }
+.footer-data { flex:1; min-width:160px; }
+.project-note p { max-width:650px; font-size:13px; line-height:1.7; color:#c4d1df; }
+.share-view { display:flex; align-items:center; gap:8px; }
+.share-view>span { font-size:11px; }
+.share-view dialog { max-width:min(560px,90vw); padding:24px; border:1px solid #4c637c; border-radius:12px; background:#0b1422; color:#e2e8f0; }
+.share-view dialog::backdrop { background:#020712c9; }
+.share-view dialog h2 { font-size:22px; }
+.share-view dialog p { margin:14px 0; font-size:14px; line-height:1.6; }
+.share-view dialog label { display:block; font-size:12px; }
+.share-view dialog input { width:100%; margin:8px 0 18px; padding:10px; border:1px solid #58718e; border-radius:5px; }
+.telemetry-summary { color:#c2d0df; font-size:13px; }
+.telemetry-summary table { width:100%; text-align:left; border-collapse:collapse; }
+.telemetry-summary th,.telemetry-summary td { padding:8px; border-bottom:1px solid #334155; }
+.telemetry-summary caption { text-align:left; padding-bottom:8px; }
+/* Muted information still needs to be readable on the dark timing board. */
+.text-gray-500,.text-gray-600 { color:#9aaac0; }
+.weekend-loading h2 { font-size:clamp(24px,3vw,34px); line-height:1.2; margin-bottom:14px; }
+@media(max-width:760px) {
+  .app-shell { height:auto; min-height:100dvh; overflow:visible; }
+  .app-shell>main { overflow:visible; min-height:280px; }
+  .app-shell>header { position:static; }
+  .header-main { gap:6px 12px; padding:8px 12px; }
+  .header-secondary,.header-ticker { display:none; }
+  .session-name { flex-basis:100%; font-size:12px; }
+  .demo-controls { padding:8px 12px; gap:4px 12px; }
+  .demo-primary { flex:1; }
+  .demo-seek { flex-basis:100%; }
+  .demo-options { flex-basis:100%; }
+  .demo-options summary { padding:6px 0; }
+  .demo-lap { margin-left:auto; }
+  .app-footer { gap:8px 12px; font-size:11px; }
+  .app-footer .share-view button { padding:6px 10px; }
+  .timing-table th,.timing-table td { padding:9px 6px; }
+  .timing-table th:nth-child(2),.timing-table td:nth-child(2),.timing-table th:nth-child(6),.timing-table td:nth-child(6) { display:none; }
+  .driver-full-name { display:none; }
+  .mobile-last-lap { display:block; color:#a5b5c7; white-space:nowrap; font:10px/1.5 ui-monospace,monospace; }
+  .timing-table .font-mono { white-space:nowrap; }
+}
+@media(max-width:640px) {
+  .track-map-root { height:auto!important; flex-wrap:nowrap!important; align-items:stretch!important; }
+  .track-map-root>div { width:100%; flex:none!important; }
+  .track-map-root svg { max-height:none!important; }
+}
+@media(max-height:600px) {
+  .app-shell { height:auto; min-height:100dvh; overflow:visible; }
+  .app-shell>main { overflow:visible; min-height:280px; }
+}
+@media(min-width:641px) and (min-height:601px) {
+  .track-map-root svg { max-height:calc(100dvh - 365px)!important; }
+  .track-map-sidebar { max-height:calc(100dvh - 350px)!important; }
+}
+
+.app-shell>main:focus-visible { outline:2px solid #5eead4; outline-offset:-3px; }

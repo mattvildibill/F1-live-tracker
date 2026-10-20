@@ -25,7 +25,7 @@ export function getTyreLabel(compound: string): string {
 }
 
 export function formatLapTime(seconds: number | null | undefined): string {
-  if (seconds == null || seconds <= 0) return '--:--.---';
+  if (seconds == null || seconds <= 0) return '—';
   const totalMs = Math.round(seconds * 1000);
   const mins = Math.floor(totalMs / 60000);
   const secs = Math.floor(totalMs / 1000) % 60;

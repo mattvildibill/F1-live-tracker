@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import type { F1State, CarData, Lap } from '../types/f1';
-import { generateLapTelemetry, LAP_LENGTH_M, type TelemetrySample } from '../utils/syntheticTelemetry';
+import { generateLapTelemetry, type TelemetrySample } from '../utils/syntheticTelemetry';
+import { elapsedLapPercent } from '../utils/telemetryCoordinate';
 
 import { openF1 } from '../utils/data';
-
-const SIM_SESSION_KEY = 9500;
 
 export interface LapTelemetry {
   samples: TelemetrySample[];
@@ -22,7 +21,7 @@ const EMPTY: LapTelemetry = { samples: [], loading: false, error: null, syntheti
  * date_start → date_start + lap_duration window (car_data is ~3.7Hz, so one
  * lap is a few hundred rows — cheap and on-demand only).
  *
- * Simulator mode (session_key 9500): generates a deterministic synthetic trace
+ * Explicit demo mode: generates a deterministic synthetic trace
  * from the Albert Park speed profile so the tab works offline.
  */
 export function useLapTelemetry(
@@ -33,7 +32,7 @@ export function useLapTelemetry(
   const [result, setResult] = useState<LapTelemetry>(EMPTY);
 
   const sessionKey = state.session?.session_key ?? null;
-  const isSim = sessionKey === SIM_SESSION_KEY;
+  const isSim = state.source === 'demo';
 
   // Find the lap record (for its time window / duration)
   const lap: Lap | undefined =
@@ -80,12 +79,8 @@ export function useLapTelemetry(
         if (!rows.length) { setResult({ ...EMPTY, error: 'No telemetry returned for this lap.' }); return; }
 
         const sorted = [...rows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        const t0 = new Date(sorted[0].date).getTime();
-        const tSpan = Math.max(1, new Date(sorted.at(-1)!.date).getTime() - t0);
-
         const samples: TelemetrySample[] = sorted.map((r) => ({
-          // Approximate distance by time fraction — good enough for trace shape
-          dist: Math.round(((new Date(r.date).getTime() - t0) / tSpan) * LAP_LENGTH_M),
+          dist: elapsedLapPercent(r.date, lap.date_start!, durationS),
           speed: r.speed,
           throttle: r.throttle,
           brake: typeof r.brake === 'number' ? (r.brake > 1 ? r.brake : r.brake * 100) : 0,

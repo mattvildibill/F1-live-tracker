@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { jolpica, json, selectWeekend, type MRData, type Race, type Result } from '../utils/data';
 export type Forecast = { current?: { time: string; temperature_2m: number; relative_humidity_2m: number; precipitation: number; wind_speed_10m: number }; hourly?: { time: string[]; precipitation_probability: number[] } };
-export function useRaceWeekend() {
+export function useRaceWeekend(enabled = true) {
   const [data, setData] = useState<{ race: Race | null; qualifying: Result[]; standings: MRData['StandingsTable']; weather: Forecast | null; updated: Date | null; error: string | null; warnings: string[]; loading: boolean }>({ race: null, qualifying: [], standings: undefined, weather: null, updated: null, error: null, warnings: [], loading: true });
   const [revision, setRevision] = useState(0);
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>;
     async function load() {
       try {
@@ -23,6 +24,6 @@ export function useRaceWeekend() {
     }
     load();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [revision]);
+  }, [revision, enabled]);
   return { ...data, refresh: () => setRevision(n => n + 1) };
 }

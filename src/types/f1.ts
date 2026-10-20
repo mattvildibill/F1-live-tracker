@@ -148,6 +148,7 @@ export interface F1State {
   startingGrid?: Record<number, number>;
   statusText?: string;
   error?: string;
+  loadingFeeds?: string[];
   session: Session | null;
   drivers: Driver[];
   positions: Position[];
