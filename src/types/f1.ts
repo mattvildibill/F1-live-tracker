@@ -143,7 +143,7 @@ export interface ERSState {
 }
 
 export interface F1State {
-  source?: 'demo' | 'replay' | 'openf1';
+  source?: 'demo' | 'replay' | 'openf1' | 'espn';
   positionHistory?: { lap: number; driver_number: number; position: number }[];
   startingGrid?: Record<number, number>;
   statusText?: string;
